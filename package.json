@@ -1,0 +1,82 @@
+{
+  "name": "python-skeleton",
+  "displayName": "Python Skeleton（Python 骨架视图）",
+  "description": "自动折叠 Python 脚本中的 import 和代码，只显示注释与 def/class 行；注释行下保留小三角，点击即可展开对应代码段落。",
+  "version": "0.0.1",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:python"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "pythonSkeleton.toggle",
+        "title": "折叠 / 展开",
+        "category": "Python 骨架视图"
+      },
+      {
+        "command": "pythonSkeleton.enable",
+        "title": "折叠全部（只显示注释与 def/class 行）",
+        "category": "Python 骨架视图"
+      },
+      {
+        "command": "pythonSkeleton.disable",
+        "title": "展开全部代码",
+        "category": "Python 骨架视图"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "pythonSkeleton.toggle",
+        "key": "ctrl+alt+s",
+        "mac": "cmd+alt+s",
+        "when": "editorLangId == python && editorTextFocus"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "pythonSkeleton.toggle",
+          "when": "editorLangId == python",
+          "group": "navigation@10"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Python Skeleton",
+      "properties": {
+        "pythonSkeleton.autoFoldOnOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "打开 Python 文件时自动执行“折叠全部”，只显示注释和 def/class 行。"
+        },
+        "pythonSkeleton.showClassLines": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否把 class 行也保留为可见行（与 def 一样）。"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test:fold": "node scripts/smoke-test.js",
+    "package": "npx @vscode/vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  }
+}
