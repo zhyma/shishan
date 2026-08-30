@@ -8,6 +8,7 @@ import type {
 } from '@shishan/protocol';
 import { NarrativeGraph } from './NarrativeGraph.js';
 import { SourcePanel } from './SourcePanel.js';
+import { readStaticData } from './static-data.js';
 import {
   applyProjectPatch,
   stateFromSnapshot,
@@ -18,6 +19,8 @@ interface Selection {
   path: string;
   narrativeId: string;
 }
+
+const STATIC_DATA = readStaticData();
 
 function firstSelection(files: Iterable<FileAnalysis>): Selection | undefined {
   for (const file of files) {
@@ -42,14 +45,16 @@ function findNarrative(
 }
 
 export default function App() {
-  const [project, setProject] = useState<ProjectState>();
+  const [project, setProject] = useState<ProjectState | undefined>(() =>
+    STATIC_DATA ? stateFromSnapshot(STATIC_DATA.snapshot) : undefined
+  );
   const [selection, setSelection] = useState<Selection>();
   const [sourceRange, setSourceRange] = useState<SourceRange>();
-  const [connected, setConnected] = useState(false);
+  const [connected, setConnected] = useState(Boolean(STATIC_DATA));
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('');
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
-  const projectRef = useRef<ProjectState | undefined>(undefined);
+  const projectRef = useRef<ProjectState | undefined>(project);
   const pendingPatchesRef = useRef<ProjectPatch[]>([]);
 
   useEffect(() => {
@@ -57,6 +62,9 @@ export default function App() {
   }, [project]);
 
   useEffect(() => {
+    if (STATIC_DATA) {
+      return;
+    }
     let disposed = false;
     const loadSnapshot = async (): Promise<void> => {
       try {
@@ -142,6 +150,13 @@ export default function App() {
         file.diagnostics.map((diagnostic) => ({ file, diagnostic }))
       ),
     [allFiles]
+  );
+  const staleDiagnostics = useMemo(
+    () =>
+      diagnostics.filter(
+        ({ diagnostic }) => diagnostic.code === 'SHISHAN501'
+      ),
+    [diagnostics]
   );
   const files = useMemo(() => {
     const query = filter.trim().toLowerCase();
@@ -238,11 +253,21 @@ export default function App() {
             <span>Diagnostics</span>
             <strong>{diagnostics.length}</strong>
           </div>
+          <div>
+            <span>Freshness</span>
+            <strong>{staleDiagnostics.length} stale</strong>
+          </div>
           <span
-            className={connected ? 'connection live' : 'connection waiting'}
+            className={
+              STATIC_DATA
+                ? 'connection static'
+                : connected
+                  ? 'connection live'
+                  : 'connection waiting'
+            }
           >
             <i />
-            {connected ? 'Live' : 'Reconnecting'}
+            {STATIC_DATA ? 'Static' : connected ? 'Live' : 'Reconnecting'}
           </span>
         </div>
       </header>
@@ -277,7 +302,7 @@ export default function App() {
                 {diagnostics.length === 0 ? (
                   <p>No diagnostics in the current index.</p>
                 ) : (
-                  diagnostics.map(({ diagnostic }, index) => (
+                  diagnostics.map(({ file, diagnostic }, index) => (
                     <button
                       type="button"
                       key={
@@ -288,6 +313,15 @@ export default function App() {
                         index
                       }
                       onClick={() => {
+                        const target = diagnostic.annotationId
+                          ? file.functions.find(
+                              (item) =>
+                                item.localId === diagnostic.annotationId
+                            )
+                          : undefined;
+                        if (target) {
+                          selectNarrative(file.path, target);
+                        }
                         if (diagnostic.range) {
                           setSourceRange(diagnostic.range);
                         }
@@ -327,7 +361,16 @@ export default function App() {
                       onClick={() => selectNarrative(file.path, item)}
                     >
                       <span>{item.name ?? item.localId}</span>
-                      <small>{item.children.length} flows</small>
+                      <small>
+                        {file.diagnostics.some(
+                          (diagnostic) =>
+                            diagnostic.code === 'SHISHAN501' &&
+                            diagnostic.annotationId === item.localId
+                        )
+                          ? 'stale · '
+                          : ''}
+                        {item.children.length} flows
+                      </small>
                     </button>
                   ))
                 ) : (
@@ -399,6 +442,8 @@ export default function App() {
               ? project.files.get(sourceRange.path)?.contentHash
               : undefined
           }
+          staticSources={STATIC_DATA?.sources}
+          staticMode={Boolean(STATIC_DATA)}
         />
       </div>
     </div>

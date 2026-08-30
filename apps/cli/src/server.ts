@@ -18,6 +18,8 @@ export interface ServerOptions {
   port?: number;
   webRoot?: string;
   watch?: boolean;
+  freshnessBase?: string | false;
+  freshnessRequired?: boolean;
 }
 
 export interface ShiShanServer {
@@ -70,12 +72,26 @@ function eventPayload(event: string, value: unknown): string {
   return 'event: ' + event + '\ndata: ' + JSON.stringify(value) + '\n\n';
 }
 
+// @shishan function create-shishan-server
+// @summary Start a loopback-only narrative API with file-level live updates
+// @input project, network, Web asset, watcher, and Git freshness options
+// @output controllable local server and incremental project index
 export async function createShiShanServer(
   options: ServerOptions
 ): Promise<ShiShanServer> {
   const root = resolve(options.root);
   const realRoot = await realpath(root);
-  const index = await ProjectIndex.create(root);
+  const index = await ProjectIndex.create(
+    root,
+    options.freshnessBase === false
+      ? {}
+      : {
+          freshness: {
+            base: options.freshnessBase ?? 'HEAD',
+            required: options.freshnessRequired ?? false
+          }
+        }
+  );
   const snapshot = await index.initialize();
   assertProtocolPayload(snapshot);
   const listenHost = options.host ?? index.config.server.host;

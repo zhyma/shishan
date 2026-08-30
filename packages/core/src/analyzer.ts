@@ -40,6 +40,11 @@ interface DetailRecord {
   detail: NarrativeDetail;
 }
 
+const implementationFingerprints = new WeakMap<
+  FileAnalysis,
+  ReadonlyMap<string, string>
+>();
+
 function rangeForNode(path: string, node: Parser.SyntaxNode): SourceRange {
   return {
     path,
@@ -413,6 +418,55 @@ function contentHash(content: string): string {
   return createHash('sha256').update(content).digest('hex');
 }
 
+function isCommentSyntax(node: Parser.SyntaxNode): boolean {
+  return node.type === 'comment' || node.type.endsWith('_comment');
+}
+
+function syntaxFingerprint(root: Parser.SyntaxNode): string {
+  const digest = createHash('sha256');
+  const stack: Array<
+    | { kind: 'node'; node: Parser.SyntaxNode }
+    | { kind: 'close' }
+  > = [{ kind: 'node', node: root }];
+
+  while (stack.length > 0) {
+    const item = stack.pop();
+    if (!item) {
+      continue;
+    }
+    if (item.kind === 'close') {
+      digest.update(')');
+      continue;
+    }
+    if (isCommentSyntax(item.node)) {
+      continue;
+    }
+
+    digest.update('(' + item.node.type.length + ':' + item.node.type);
+    const children = item.node.children;
+    if (children.length === 0) {
+      const text = item.node.text;
+      digest.update('=' + Buffer.byteLength(text) + ':' + text);
+    }
+    stack.push({ kind: 'close' });
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      const child = children[index];
+      if (child) {
+        stack.push({ kind: 'node', node: child });
+      }
+    }
+  }
+
+  return digest.digest('hex');
+}
+
+export function implementationFingerprint(
+  analysis: FileAnalysis,
+  functionId: string
+): string | undefined {
+  return implementationFingerprints.get(analysis)?.get(functionId);
+}
+
 export interface AnalyzeTreeOptions {
   path: string;
   language: SupportedLanguage;
@@ -524,6 +578,7 @@ export function analyzeTree(options: AnalyzeTreeOptions): FileAnalysis {
   }
 
   const functions: NarrativeNode[] = [];
+  const fingerprints = new Map<string, string>();
   const narrativeByFunctionNode = new Map<number, NarrativeNode>();
   const flowRecordsByFunction = new Map<number, FlowRecord[]>();
   const detailRecordsByFunction = new Map<number, DetailRecord[]>();
@@ -560,6 +615,10 @@ export function analyzeTree(options: AnalyzeTreeOptions): FileAnalysis {
       details: []
     };
     functions.push(narrative);
+    fingerprints.set(
+      functionBinding.annotation.localId,
+      syntaxFingerprint(functionNode)
+    );
     narrativeByFunctionNode.set(functionNode.id, narrative);
     flowRecordsByFunction.set(functionNode.id, []);
     detailRecordsByFunction.set(functionNode.id, []);
@@ -722,7 +781,7 @@ export function analyzeTree(options: AnalyzeTreeOptions): FileAnalysis {
   const narratedFunctions = symbols.filter((symbol) => symbol.narrativeId).length;
   const totalFunctions = symbols.length;
 
-  return {
+  const analysis: FileAnalysis = {
     path,
     language,
     contentHash: contentHash(content),
@@ -742,4 +801,6 @@ export function analyzeTree(options: AnalyzeTreeOptions): FileAnalysis {
     parseMode,
     syntaxError: tree.rootNode.hasError
   };
+  implementationFingerprints.set(analysis, fingerprints);
+  return analysis;
 }

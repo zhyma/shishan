@@ -15,7 +15,7 @@ Read [references/protocol.md](references/protocol.md) before authoring or changi
 2. Identify the function's intent, meaningful actions, decisions, loops, and unusually important implementation details.
 3. Update code and narrative together. Preserve accurate user-written prose when behavior has not changed.
 4. Place each block immediately above its AST target and at the same indentation.
-5. Run `shishan check <root>`. Fix binding and syntax diagnostics before finishing.
+5. Run `shishan check <root> --strict`. Fix binding, syntax, and freshness diagnostics before finishing.
 6. Review the rendered flow when the local viewer is available. Confirm that details attach to the intended node and that the graph remains concise.
 
 ## Choose the Right Granularity
@@ -47,12 +47,14 @@ Read [references/protocol.md](references/protocol.md) before authoring or changi
 - Merge or remove annotations when a refactor makes them redundant.
 - Remove an annotation when its target is deleted; do not leave historical prose in active source.
 - Treat a changed `@covers` span as a correctness-sensitive edit. Recount sibling statements after inserting, removing, or reordering code.
+- Treat `SHISHAN501` as a required narrative review. Update the explanation only when behavior, intent, or important implementation details changed; never make a cosmetic prose edit solely to change the fingerprint.
 - Do not invent business intent. If the code and available context do not establish intent, use a factual implementation summary or ask the user.
 
 ## Finish Criteria
 
 - The code parses in its native toolchain.
 - `shishan check` reports no errors caused by the change.
+- No changed implementation is left with an unresolved `SHISHAN501` warning.
 - Each annotation binds to the intended AST node.
 - Function inputs, outputs, major decisions, and loops are understandable from the narrative.
 - Detailed callouts are useful when expanded and do not overwhelm the default flow.

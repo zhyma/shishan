@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 
+import { writeSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   CONFIG_FILE,
   ProjectIndex,
-  defaultConfigJson
+  defaultConfigJson,
+  type ProjectIndexOptions
 } from '@shishan/core';
 import type { Diagnostic, ProjectSnapshot } from '@shishan/protocol';
 import { createShiShanServer } from './server.js';
+import { exportStaticSite } from './static-export.js';
 
 interface ParsedArguments {
   command: string;
@@ -17,12 +20,37 @@ interface ParsedArguments {
   flags: Map<string, string | true>;
 }
 
+function writeStream(fileDescriptor: number, value: string): void {
+  const buffer = Buffer.from(value);
+  let offset = 0;
+  while (offset < buffer.length) {
+    const written = writeSync(
+      fileDescriptor,
+      buffer,
+      offset,
+      Math.min(64 * 1024, buffer.length - offset)
+    );
+    if (written <= 0) {
+      throw new Error('Could not write CLI output.');
+    }
+    offset += written;
+  }
+}
+
+function writeOutput(value: string): void {
+  writeStream(1, value + '\n');
+}
+
+function writeError(value: string): void {
+  writeStream(2, value + '\n');
+}
+
 function parseArguments(argv: string[]): ParsedArguments {
   const command = argv[0] ?? 'help';
   const flags = new Map<string, string | true>();
   let root = '.';
   let rootAssigned = false;
-  const valueFlags = new Set(['host', 'port', 'out']);
+  const valueFlags = new Set(['host', 'port', 'out', 'base']);
 
   for (let index = 1; index < argv.length; index += 1) {
     const value = argv[index];
@@ -62,13 +90,32 @@ function help(): string {
     '',
     'Usage:',
     '  shishan init [root]',
-    '  shishan scan [root] [--json]',
-    '  shishan check [root] [--strict]',
-    '  shishan export [root] [--out path]',
-    '  shishan serve [root] [--host 127.0.0.1] [--port 4173]',
+    '  shishan scan [root] [--json] [--base HEAD]',
+    '  shishan check [root] [--strict] [--base HEAD]',
+    '  shishan export [root] [--out path] [--base HEAD]',
+    '  shishan export-site [root] [--out directory] [--include-source] [--base HEAD]',
+    '  shishan serve [root] [--host 127.0.0.1] [--port 4173] [--base HEAD]',
     '',
+    'Freshness checks compare implementation and narrative changes against Git HEAD.',
+    'Use --no-freshness to disable Git comparison.',
     'The server sends a complete snapshot once, then file-level patches only.'
   ].join('\n');
+}
+
+function projectOptions(flags: ReadonlyMap<string, string | true>): ProjectIndexOptions {
+  if (flags.has('no-freshness')) {
+    return {};
+  }
+  const base = flags.get('base');
+  if (base === true) {
+    throw new Error('--base requires a Git revision.');
+  }
+  return {
+    freshness: {
+      base: typeof base === 'string' ? base : 'HEAD',
+      required: typeof base === 'string'
+    }
+  };
 }
 
 function allDiagnostics(snapshot: ProjectSnapshot): Diagnostic[] {
@@ -94,15 +141,18 @@ function formatDiagnostic(diagnostic: Diagnostic): string {
   );
 }
 
-async function scan(root: string, json: boolean): Promise<void> {
-  const index = await ProjectIndex.create(root);
+async function scan(arguments_: ParsedArguments): Promise<void> {
+  const index = await ProjectIndex.create(
+    arguments_.root,
+    projectOptions(arguments_.flags)
+  );
   const snapshot = await index.initialize();
-  if (json) {
-    console.log(JSON.stringify(snapshot, null, 2));
+  if (arguments_.flags.has('json')) {
+    await writeOutput(JSON.stringify(snapshot, null, 2));
     return;
   }
   const diagnostics = allDiagnostics(snapshot);
-  console.log(
+  await writeOutput(
     [
       'Scanned ' + snapshot.coverage.files + ' files.',
       'Narrated functions: ' +
@@ -118,17 +168,21 @@ async function scan(root: string, json: boolean): Promise<void> {
         snapshot.coverage.details +
         '.',
       'Diagnostics: ' + diagnostics.length + '.',
-      'Parse operations: ' + snapshot.metrics.totalParseOperations + '.'
+      'Parse operations: ' + snapshot.metrics.totalParseOperations + '.',
+      'Freshness baseline: ' + (index.freshnessBase() ?? 'disabled') + '.'
     ].join('\n')
   );
 }
 
-async function check(root: string, strict: boolean): Promise<void> {
-  const index = await ProjectIndex.create(root);
+async function check(arguments_: ParsedArguments): Promise<void> {
+  const index = await ProjectIndex.create(
+    arguments_.root,
+    projectOptions(arguments_.flags)
+  );
   const snapshot = await index.initialize();
   const diagnostics = allDiagnostics(snapshot);
   for (const diagnostic of diagnostics) {
-    console.log(formatDiagnostic(diagnostic));
+    await writeOutput(formatDiagnostic(diagnostic));
   }
   const errors = diagnostics.filter(
     (diagnostic) => diagnostic.severity === 'error'
@@ -136,7 +190,7 @@ async function check(root: string, strict: boolean): Promise<void> {
   const warnings = diagnostics.filter(
     (diagnostic) => diagnostic.severity === 'warning'
   ).length;
-  console.log(
+  await writeOutput(
     'Check complete: ' +
       errors +
       ' errors, ' +
@@ -145,27 +199,64 @@ async function check(root: string, strict: boolean): Promise<void> {
       snapshot.coverage.percent +
       '%.'
   );
-  if (errors > 0 || (strict && warnings > 0)) {
+  if (errors > 0 || (arguments_.flags.has('strict') && warnings > 0)) {
     process.exitCode = 1;
   }
 }
 
 async function exportSnapshot(
-  root: string,
-  output: string | true | undefined
+  arguments_: ParsedArguments
 ): Promise<void> {
+  const output = arguments_.flags.get('out');
   if (output === true) {
     throw new Error('--out requires a file path.');
   }
-  const index = await ProjectIndex.create(root);
+  const index = await ProjectIndex.create(
+    arguments_.root,
+    projectOptions(arguments_.flags)
+  );
   const snapshot = await index.initialize();
   const json = JSON.stringify(snapshot, null, 2) + '\n';
   if (typeof output === 'string') {
-    const path = resolve(root, output);
+    const path = resolve(arguments_.root, output);
     await writeFile(path, json, 'utf8');
-    console.log('Wrote ' + path);
+    await writeOutput('Wrote ' + path);
   } else {
-    process.stdout.write(json);
+    writeStream(1, json);
+  }
+}
+
+async function exportSite(arguments_: ParsedArguments): Promise<void> {
+  const output = arguments_.flags.get('out');
+  if (output === true) {
+    throw new Error('--out requires a directory path.');
+  }
+  const freshness = projectOptions(arguments_.flags).freshness;
+  const webRoot = fileURLToPath(new URL('../../web/dist', import.meta.url));
+  const result = await exportStaticSite({
+    root: arguments_.root,
+    output: resolve(
+      arguments_.root,
+      typeof output === 'string' ? output : '.shishan/site'
+    ),
+    webRoot,
+    includeSource: arguments_.flags.has('include-source'),
+    freshnessBase: freshness?.base ?? false,
+    freshnessRequired: freshness?.required
+  });
+  await writeOutput(
+    'Wrote static ShiShan site to ' +
+      result.output +
+      ' (' +
+      result.files +
+      ' files, ' +
+      result.includedSources +
+      ' sources included).'
+  );
+  if (!arguments_.flags.has('include-source')) {
+    await writeOutput(
+      'Source text was omitted. Use --include-source only when recipients may read the code.'
+    );
   }
 }
 
@@ -176,14 +267,14 @@ async function init(root: string): Promise<void> {
       encoding: 'utf8',
       flag: 'wx'
     });
-    console.log('Created ' + path);
+    await writeOutput('Created ' + path);
   } catch (error) {
     const code =
       typeof error === 'object' && error && 'code' in error
         ? String(error.code)
         : '';
     if (code === 'EEXIST') {
-      console.log(path + ' already exists; left it unchanged.');
+      await writeOutput(path + ' already exists; left it unchanged.');
       return;
     }
     throw error;
@@ -205,13 +296,16 @@ async function serve(arguments_: ParsedArguments): Promise<void> {
     throw new Error('--host requires a loopback hostname.');
   }
   const host = typeof hostValue === 'string' ? hostValue : undefined;
+  const freshness = projectOptions(arguments_.flags).freshness;
   const webRoot = fileURLToPath(new URL('../../web/dist', import.meta.url));
   const server = await createShiShanServer({
     root: arguments_.root,
     host,
     port,
     webRoot,
-    watch: true
+    watch: true,
+    freshnessBase: freshness?.base ?? false,
+    freshnessRequired: freshness?.required
   });
   let address: string;
   try {
@@ -220,8 +314,10 @@ async function serve(arguments_: ParsedArguments): Promise<void> {
     await server.close();
     throw error;
   }
-  console.log('ShiShan is available at ' + address);
-  console.log('Watching source files; updates are emitted as file-level patches.');
+  await writeOutput('ShiShan is available at ' + address);
+  await writeOutput(
+    'Watching source files; updates are emitted as file-level patches.'
+  );
 
   const close = async (): Promise<void> => {
     await server.close();
@@ -241,13 +337,16 @@ async function main(): Promise<void> {
       await init(arguments_.root);
       break;
     case 'scan':
-      await scan(arguments_.root, arguments_.flags.has('json'));
+      await scan(arguments_);
       break;
     case 'check':
-      await check(arguments_.root, arguments_.flags.has('strict'));
+      await check(arguments_);
       break;
     case 'export':
-      await exportSnapshot(arguments_.root, arguments_.flags.get('out'));
+      await exportSnapshot(arguments_);
+      break;
+    case 'export-site':
+      await exportSite(arguments_);
       break;
     case 'serve':
       await serve(arguments_);
@@ -255,16 +354,18 @@ async function main(): Promise<void> {
     case 'help':
     case '--help':
     case '-h':
-      console.log(help());
+      await writeOutput(help());
       break;
     default:
-      console.error('Unknown command: ' + arguments_.command);
-      console.error(help());
+      await writeError('Unknown command: ' + arguments_.command);
+      await writeError(help());
       process.exitCode = 2;
   }
 }
 
-main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : String(error));
+try {
+  await main();
+} catch (error: unknown) {
+  await writeError(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
-});
+}

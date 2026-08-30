@@ -2,7 +2,7 @@
 
 ShiShan 是一套“代码叙事协议 + 本地解析器 + Web 可视化工具”。AI 在写代码时留下结构化自然语言说明，ShiShan 用真实 AST 校验这些说明绑定到哪个函数、分支、循环或具体语句，再把结果展示成可逐层展开的流程图。
 
-当前分支已经实现 PRD 的 Phase 0–2 技术基线，支持：
+当前分支已经实现 PRD 的 Phase 0–2 和 Phase 3A 维护性基线，支持：
 
 - Python；
 - C++；
@@ -12,7 +12,11 @@ ShiShan 是一套“代码叙事协议 + 本地解析器 + Web 可视化工具�
 - 默认隐藏、按需展开的 `detail` 实现细节；
 - CLI 扫描、校验、JSON 导出和本地 Web 服务；
 - 文件级监听、Tree-sitter 增量解析和 SSE 差量补丁；
+- 基于固定 Git revision 的疑似过期叙事检测；
+- 不依赖 ShiShan API 的只读静态站点导出；
 - 可独立安装的 ShiShan Authoring Skill。
+
+当前交付和 CI 只面向 Linux。macOS、Windows 与多 AI 平台 Skill 已明确延期。
 
 ## 快速体验
 
@@ -27,6 +31,8 @@ node apps/cli/dist/main.js serve fixtures/polyglot
 ```
 
 浏览器打开 [http://127.0.0.1:4173](http://127.0.0.1:4173)。页面首次获取完整项目快照，之后只接收发生变化的文件补丁。
+
+在 Git 仓库中，`scan`、`check`、`export` 和 `serve` 默认与 `HEAD` 比较。如果函数实现 token 发生变化而对应叙事完全没变，会报告 `SHISHAN501`。可以用 `--base origin/main` 指定评审基线，或用 `--no-freshness` 关闭。
 
 ## 注释长什么样
 
@@ -63,11 +69,21 @@ def calculate_order(prices):
 | --- | --- |
 | `shishan init [root]` | 创建默认 `.shishanrc.json`，已有文件不会覆盖 |
 | `shishan scan [root] [--json]` | 扫描项目并输出覆盖率、诊断和解析统计 |
-| `shishan check [root] [--strict]` | 校验语法和绑定；`--strict` 将 warning 作为失败 |
-| `shishan export [root] [--out file]` | 导出符合 JSON Schema 的完整 IR |
-| `shishan serve [root] [--port 4173]` | 启动仅监听 loopback 的本地 Web 服务和增量监听 |
+| `shishan check [root] [--strict] [--base HEAD]` | 校验语法、绑定和 Git freshness；`--strict` 将 warning 作为失败 |
+| `shishan export [root] [--out file] [--base HEAD]` | 导出带 freshness 诊断、符合 JSON Schema 的完整 IR |
+| `shishan serve [root] [--port 4173] [--base HEAD]` | 启动仅监听 loopback 的本地 Web 服务和增量监听 |
+| `shishan export-site [root] [--out directory]` | 导出静态站点；默认不含源码，`--include-source` 显式打包源码 |
 
 在本仓库中可以用 `npm run shishan -- <command>` 代替全局命令。
+
+静态分享示例：
+
+```bash
+node apps/cli/dist/main.js export-site fixtures/polyglot --out /tmp/shishan-demo
+python3 -m http.server 8080 --directory /tmp/shishan-demo
+```
+
+然后打开 [http://127.0.0.1:8080](http://127.0.0.1:8080)。该页面不需要 ShiShan API、Git、模型 API 或外网。默认只能看叙事；只有确认接收者可以阅读源码时才添加 `--include-source`。
 
 ## Authoring Skill
 
@@ -98,6 +114,9 @@ flowchart LR
   H -->|"Tree.edit + one-file parse"| D
   E -->|"SSE ProjectPatch"| F
   F --> I["React Flow + Dagre"]
+  J["Pinned Git revision"] --> K["AST token + narrative fingerprints"]
+  K -->|"SHISHAN501 on changed file"| H
+  D --> L["Static site + embedded snapshot"]
 ```
 
 核心实现分为：
@@ -121,7 +140,9 @@ flowchart LR
 5. 服务只发送 `upsertFiles` 和 `removedFiles`；
 6. 浏览器 Map 只替换补丁中的文件，未变化文件保持对象身份。
 
-本机 250 文件基准的一次观测结果：初始化 138.24 ms，单文件更新 0.64 ms，复用 249 个文件；补丁 1,984 bytes，为初始快照的 0.50%。这只是回归基线，不是跨机器性能承诺。运行：
+开启 freshness 时，启动阶段只读取一次 Git changed-path 列表；每个 watcher 批次只查询批次中的路径。只有确实相对基线发生变化的文件才读取并缓存一份 baseline AST，不会为每次保存重建整个项目。
+
+本机 250 文件基准的一次观测结果：初始化 152.78 ms，单文件更新 0.78 ms，复用 249 个文件；补丁 1,984 bytes，为初始快照的 0.50%。这只是回归基线，不是跨机器性能承诺。运行：
 
 ```bash
 npm run benchmark:incremental -- --files=250
@@ -136,7 +157,7 @@ npm run typecheck
 python3 /path/to/skill-creator/scripts/quick_validate.py skills/shishan-author
 ```
 
-测试覆盖协议、Schema、四语言 Golden IR、增量对象复用、资源上限、路径隔离、服务补丁和 Web 状态合并。GitHub Actions 在 Linux、macOS、Windows 的 Node 24 环境运行测试和构建；远端结果需要分支推送后确认。
+测试覆盖协议、Schema、四语言 Golden IR、增量对象复用、Git freshness、CLI 管道输出、静态导出、资源上限、路径隔离、服务补丁和 Web 状态合并。GitHub Actions 当前只在 Linux Node 24 环境运行测试、类型检查和构建；远端结果需要分支推送后确认。
 
 验证记录见 [docs/validation.md](docs/validation.md)。
 
@@ -162,5 +183,5 @@ python3 /path/to/skill-creator/scripts/quick_validate.py skills/shishan-author
 - [产品需求文档](docs/PRD.md)
 - [协议规范](docs/protocol.md)
 - [技术架构](docs/architecture.md)
-- [Phase 0–2 验证记录](docs/validation.md)
+- [Phase 0–3A 验证记录](docs/validation.md)
 - [MIT License](LICENSE.md)

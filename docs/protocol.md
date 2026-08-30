@@ -118,8 +118,23 @@ v1 表达的是可读叙事关系，不承诺完整编译器级 CFG。
 | `SHISHAN201–203` | 字段错误 |
 | `SHISHAN301–306` | AST 绑定、范围、作用域或重复目标错误 |
 | `SHISHAN401` | 命名函数尚无 function narrative，默认 info |
+| `SHISHAN501` | 相对 Git 基线实现 token 已变化，但函数叙事指纹完全未变化 |
 
-## 8. 版本与兼容
+## 8. Git freshness
+
+freshness 不改变 `shishan/v1` IR 拓扑，而是在 `FileAnalysis.diagnostics` 中增加维护性提示：
+
+1. 启动时把 `--base`（默认 `HEAD`）解析并固定为 commit hash；
+2. 仅对 Git 报告为 changed 的当前文件读取 baseline 版本；
+3. 用 Tree-sitter token 生成函数实现指纹，忽略空白和 comment node；
+4. 用 function/child/detail 的 id、kind、summary 与 fields 生成叙事指纹；
+5. 实现指纹变化而叙事指纹相同时产生 `SHISHAN501` warning。
+
+该诊断表示“必须复核”，不是自然语言正确性的证明。正确处理方式是检查 summary、condition、effect、children 和 details 是否仍与实现一致；如果确实需要更新，应写出有意义的变化，而不是机械修改标点来改变指纹。
+
+新增文件没有 baseline，不产生过期诊断。普通注释或纯格式变化不改变实现指纹。当前版本不跨 Git rename 匹配旧路径。
+
+## 9. 版本与兼容
 
 - payload 必须携带 `protocolVersion: "shishan/v1"`；
 - v1 内可添加可选字段，但不得改变现有字段语义；

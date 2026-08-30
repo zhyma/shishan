@@ -114,3 +114,4 @@ JSX and TSX return statements may contain JSX; they use the same annotation rule
 - `SHISHAN304`: flow annotation is outside a narrated function.
 - `SHISHAN305–306`: duplicate ID or more than one flow annotation on one syntax target.
 - `SHISHAN401`: named function has no function narrative; informational by default.
+- `SHISHAN501`: implementation tokens changed from the selected Git baseline while the function narrative stayed byte-for-byte equivalent after normalization; review and meaningfully synchronize the narrative.

@@ -153,6 +153,11 @@ button:focus-visible {
   box-shadow: 0 0 0 4px rgba(76, 155, 108, 0.12);
 }
 
+.connection.static i {
+  background: #a26a28;
+  box-shadow: 0 0 0 4px rgba(162, 106, 40, 0.12);
+}
+
 .workspace {
   display: grid;
   grid-template-columns: 250px minmax(420px, 1fr) 370px;

@@ -18,6 +18,14 @@ import {
 } from './config.js';
 import { languageForPath } from './language.js';
 import { ParserEngine } from './parser-engine.js';
+import {
+  GitFreshnessChecker,
+  type GitFreshnessOptions
+} from './freshness.js';
+
+export interface ProjectIndexOptions {
+  freshness?: GitFreshnessOptions;
+}
 
 interface CoverageAccumulator {
   files: number;
@@ -139,6 +147,7 @@ export class ProjectIndex {
   readonly root: string;
   readonly config: ShiShanConfig;
   readonly #engine = new ParserEngine();
+  readonly #freshness: GitFreshnessChecker | undefined;
   readonly #pathFilter: (path: string) => boolean;
   readonly #files = new Map<string, FileAnalysis>();
   readonly #coverage: CoverageAccumulator = {
@@ -155,27 +164,40 @@ export class ProjectIndex {
   private constructor(
     root: string,
     config: ShiShanConfig,
-    pathFilter: (path: string) => boolean
+    pathFilter: (path: string) => boolean,
+    freshness: GitFreshnessChecker | undefined
   ) {
     this.root = resolve(root);
     this.config = config;
     this.#pathFilter = pathFilter;
+    this.#freshness = freshness;
   }
 
-  static async create(root: string): Promise<ProjectIndex> {
+  static async create(
+    root: string,
+    options: ProjectIndexOptions = {}
+  ): Promise<ProjectIndex> {
     const resolved = resolve(root);
     const config = await loadConfig(resolved);
+    const freshness = options.freshness
+      ? await GitFreshnessChecker.create(resolved, options.freshness)
+      : undefined;
     return new ProjectIndex(
       resolved,
       config,
-      await createSourcePathFilter(resolved, config)
+      await createSourcePathFilter(resolved, config),
+      freshness
     );
   }
 
   async initialize(): Promise<ProjectSnapshot> {
     const paths = await discoverSourcePaths(this.root, this.config);
-    await this.updatePaths(paths);
+    await this.#updatePaths(paths, false);
     return this.snapshot();
+  }
+
+  freshnessBase(): string | undefined {
+    return this.#freshness?.base;
   }
 
   #applyCoverage(
@@ -270,6 +292,13 @@ export class ProjectIndex {
   }
 
   async updatePaths(inputs: readonly string[]): Promise<ProjectPatch> {
+    return this.#updatePaths(inputs, true);
+  }
+
+  async #updatePaths(
+    inputs: readonly string[],
+    refreshFreshness: boolean
+  ): Promise<ProjectPatch> {
     const started = performance.now();
     const requestedPaths = [
       ...new Set(
@@ -278,6 +307,9 @@ export class ProjectIndex {
           .filter((path): path is string => Boolean(path))
       )
     ].filter(this.#pathFilter);
+    if (refreshFreshness) {
+      await this.#freshness?.refreshPaths(requestedPaths);
+    }
     const parsedPaths: string[] = [];
     const removedPaths: string[] = [];
     const unchangedPaths: string[] = [];
@@ -372,8 +404,21 @@ export class ProjectIndex {
         continue;
       }
 
-      this.#setFile(path, result.analysis);
-      upsertFiles.push(result.analysis);
+      const freshnessDiagnostics = this.#freshness
+        ? await this.#freshness.diagnostics(path, result.analysis)
+        : [];
+      const analysis =
+        freshnessDiagnostics.length > 0
+          ? {
+              ...result.analysis,
+              diagnostics: [
+                ...result.analysis.diagnostics,
+                ...freshnessDiagnostics
+              ]
+            }
+          : result.analysis;
+      this.#setFile(path, analysis);
+      upsertFiles.push(analysis);
       parsedPaths.push(path);
       this.#metrics.totalParseOperations += 1;
       if (result.incremental) {

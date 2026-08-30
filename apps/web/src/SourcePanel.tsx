@@ -4,11 +4,18 @@ import type { SourceRange } from '@shishan/protocol';
 interface SourcePanelProps {
   range?: SourceRange;
   version?: string;
+  staticSources?: Readonly<Record<string, string>>;
+  staticMode?: boolean;
 }
 
 const MAX_VISIBLE_LINES = 240;
 
-export function SourcePanel({ range, version }: SourcePanelProps) {
+export function SourcePanel({
+  range,
+  version,
+  staticSources,
+  staticMode = false
+}: SourcePanelProps) {
   const [source, setSource] = useState('');
   const [error, setError] = useState('');
 
@@ -21,6 +28,17 @@ export function SourcePanel({ range, version }: SourcePanelProps) {
     const controller = new AbortController();
     setSource('');
     setError('');
+    if (staticMode) {
+      const staticSource = staticSources?.[range.path];
+      if (staticSource === undefined) {
+        setError(
+          'Source was not included in this static export. Re-export with --include-source to enable source navigation.'
+        );
+      } else {
+        setSource(staticSource);
+      }
+      return;
+    }
     fetch('/api/source?path=' + encodeURIComponent(range.path), {
       signal: controller.signal
     })
@@ -37,7 +55,7 @@ export function SourcePanel({ range, version }: SourcePanelProps) {
         }
       });
     return () => controller.abort();
-  }, [range?.path, version]);
+  }, [range?.path, staticMode, staticSources, version]);
 
   const visible = useMemo(() => {
     if (!range || !source) {
