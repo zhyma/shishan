@@ -1,82 +1,40 @@
 {
-  "name": "python-skeleton",
-  "displayName": "Python Skeleton（Python 骨架视图）",
-  "description": "自动折叠 Python 脚本中的 import 和代码，只显示注释与 def/class 行；注释行下保留小三角，点击即可展开对应代码段落。",
-  "version": "0.0.1",
-  "publisher": "local",
+  "name": "shishan-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI-authored code narratives with local, incremental visualization.",
   "license": "MIT",
   "engines": {
-    "vscode": "^1.85.0"
+    "node": ">=24.0.0"
   },
-  "categories": [
-    "Programming Languages",
-    "Other"
+  "workspaces": [
+    "packages/*",
+    "apps/*"
   ],
-  "activationEvents": [
-    "onLanguage:python"
-  ],
-  "main": "./out/extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "pythonSkeleton.toggle",
-        "title": "折叠 / 展开",
-        "category": "Python 骨架视图"
-      },
-      {
-        "command": "pythonSkeleton.enable",
-        "title": "折叠全部（只显示注释与 def/class 行）",
-        "category": "Python 骨架视图"
-      },
-      {
-        "command": "pythonSkeleton.disable",
-        "title": "展开全部代码",
-        "category": "Python 骨架视图"
-      }
-    ],
-    "keybindings": [
-      {
-        "command": "pythonSkeleton.toggle",
-        "key": "ctrl+alt+s",
-        "mac": "cmd+alt+s",
-        "when": "editorLangId == python && editorTextFocus"
-      }
-    ],
-    "menus": {
-      "editor/context": [
-        {
-          "command": "pythonSkeleton.toggle",
-          "when": "editorLangId == python",
-          "group": "navigation@10"
-        }
-      ]
-    },
-    "configuration": {
-      "title": "Python Skeleton",
-      "properties": {
-        "pythonSkeleton.autoFoldOnOpen": {
-          "type": "boolean",
-          "default": true,
-          "description": "打开 Python 文件时自动执行“折叠全部”，只显示注释和 def/class 行。"
-        },
-        "pythonSkeleton.showClassLines": {
-          "type": "boolean",
-          "default": true,
-          "description": "是否把 class 行也保留为可见行（与 def 一样）。"
-        }
-      }
-    }
+  "overrides": {
+    "tree-sitter-c": "0.23.2"
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "test:fold": "node scripts/smoke-test.js",
-    "package": "npx @vscode/vsce package"
+    "build:protocol": "npm run build -w @shishan/protocol",
+    "build:core": "npm run build -w @shishan/core",
+    "build:cli": "npm run build -w @shishan/cli",
+    "build:packages": "npm run build:protocol && npm run build:core && npm run build:cli",
+    "build:web": "npm run build -w @shishan/web",
+    "build": "npm run build:packages && npm run build:web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run build:packages && vitest run",
+    "test:watch": "vitest",
+    "shishan": "node apps/cli/dist/main.js",
+    "dev:web": "npm run dev -w @shishan/web",
+    "benchmark:incremental": "npm run build:packages && node scripts/benchmark-incremental.mts",
+    "legacy:compile": "tsc -p tsconfig.json",
+    "legacy:test:fold": "node scripts/smoke-test.js"
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
-    "@types/vscode": "^1.85.0",
-    "typescript": "^5.4.0"
+    "@types/node": "24.10.1",
+    "@types/vscode": "1.85.0",
+    "tree-sitter-c": "0.23.2",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
   }
 }

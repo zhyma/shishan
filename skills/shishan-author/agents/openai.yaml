@@ -1,0 +1,4 @@
+interface:
+  display_name: "ShiShan Author"
+  short_description: "Author and maintain ShiShan code narratives"
+  default_prompt: "Use $shishan-author to add or update ShiShan narrative annotations while implementing this code change."

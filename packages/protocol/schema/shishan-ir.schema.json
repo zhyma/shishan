@@ -1,0 +1,515 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shishan.dev/schema/shishan-ir.schema.json",
+  "title": "ShiShan protocol payload",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/projectSnapshot"
+    },
+    {
+      "$ref": "#/$defs/projectPatch"
+    }
+  ],
+  "$defs": {
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["line", "column"],
+      "properties": {
+        "line": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "start", "end"],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/position"
+        },
+        "end": {
+          "$ref": "#/$defs/position"
+        }
+      }
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message", "path"],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "severity": {
+          "enum": ["error", "warning", "info"]
+        },
+        "message": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "range": {
+          "$ref": "#/$defs/range"
+        },
+        "annotationId": {
+          "type": "string"
+        },
+        "suggestion": {
+          "type": "string"
+        }
+      }
+    },
+    "detail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "localId",
+        "summary",
+        "fields",
+        "source",
+        "annotationSource",
+        "coveredStatements"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "localId": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "fields": {
+          "$ref": "#/$defs/fields"
+        },
+        "source": {
+          "$ref": "#/$defs/range"
+        },
+        "annotationSource": {
+          "$ref": "#/$defs/range"
+        },
+        "coveredStatements": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "target", "kind"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": ["next", "true", "false", "body", "exit"]
+        },
+        "label": {
+          "type": "string"
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "localId",
+        "kind",
+        "summary",
+        "fields",
+        "source",
+        "annotationSource",
+        "children",
+        "edges",
+        "details"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "localId": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": ["function", "step", "branch", "loop"]
+        },
+        "name": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "fields": {
+          "$ref": "#/$defs/fields"
+        },
+        "source": {
+          "$ref": "#/$defs/range"
+        },
+        "annotationSource": {
+          "$ref": "#/$defs/range"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/edge"
+          }
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/detail"
+          }
+        }
+      }
+    },
+    "symbol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "kind", "source"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "function"
+        },
+        "source": {
+          "$ref": "#/$defs/range"
+        },
+        "narrativeId": {
+          "type": "string"
+        }
+      }
+    },
+    "fileCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "totalFunctions",
+        "narratedFunctions",
+        "percent",
+        "flowNodes",
+        "details"
+      ],
+      "properties": {
+        "totalFunctions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "narratedFunctions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "flowNodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "details": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "language",
+        "contentHash",
+        "functions",
+        "symbols",
+        "diagnostics",
+        "coverage",
+        "parseMode",
+        "syntaxError"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "language": {
+          "enum": [
+            "python",
+            "cpp",
+            "typescript",
+            "tsx",
+            "javascript",
+            "jsx"
+          ]
+        },
+        "contentHash": {
+          "type": "string"
+        },
+        "functions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "symbols": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/symbol"
+          }
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        },
+        "coverage": {
+          "$ref": "#/$defs/fileCoverage"
+        },
+        "parseMode": {
+          "enum": ["full", "incremental", "reused"]
+        },
+        "syntaxError": {
+          "type": "boolean"
+        }
+      }
+    },
+    "updateMetrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestedPaths",
+        "parsedPaths",
+        "removedPaths",
+        "unchangedPaths",
+        "reusedFileCount",
+        "durationMs"
+      ],
+      "properties": {
+        "requestedPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "parsedPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "removedPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unchangedPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reusedFileCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "durationMs": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "indexMetrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "totalParseOperations",
+        "fullParses",
+        "incrementalParses",
+        "skippedUnchangedFiles",
+        "lastUpdate"
+      ],
+      "properties": {
+        "totalParseOperations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fullParses": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "incrementalParses": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skippedUnchangedFiles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lastUpdate": {
+          "$ref": "#/$defs/updateMetrics"
+        }
+      }
+    },
+    "projectCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "totalFunctions",
+        "narratedFunctions",
+        "percent",
+        "flowNodes",
+        "details",
+        "files",
+        "filesWithNarratives"
+      ],
+      "properties": {
+        "totalFunctions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "narratedFunctions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "flowNodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "details": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "filesWithNarratives": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "projectSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "generation",
+        "rootName",
+        "files",
+        "coverage",
+        "metrics"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "shishan/v1"
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rootName": {
+          "type": "string"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/file"
+          }
+        },
+        "coverage": {
+          "$ref": "#/$defs/projectCoverage"
+        },
+        "metrics": {
+          "$ref": "#/$defs/indexMetrics"
+        }
+      }
+    },
+    "projectPatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "generation",
+        "upsertFiles",
+        "removedFiles",
+        "coverage",
+        "metrics"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "shishan/v1"
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "upsertFiles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/file"
+          }
+        },
+        "removedFiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "coverage": {
+          "$ref": "#/$defs/projectCoverage"
+        },
+        "metrics": {
+          "$ref": "#/$defs/indexMetrics"
+        }
+      }
+    }
+  }
+}
