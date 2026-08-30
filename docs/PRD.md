@@ -1064,13 +1064,14 @@ Hono `e2740d5` 的第一轮中型仓库试用已经完成：357 个受支持源�
 
 仍未完成的里程碑按优先级为：
 
-1. 推送当前实现并确认 Linux GitHub Actions 的远端结果；
-2. 在可操作桌面的 Linux 环境人工点击 VS Code 两个命令，并验证 Web `vscode://` 跳回源码；
-3. 跟踪 `tree-sitter-typescript` 对 `export type *` 等现代语法的支持，为当前 7 个真实 grammar gap 增加最小 fixture，并在上游发布后评估升级；
-4. 用 5–10 个 Codex 编码任务评估 Skill 的同步率、`SHISHAN501` 命中率与噪声；
-5. 选择大于 5,000 文件的仓库，验证首次扫描、长期 watcher/浏览器内存和增量曲线；
-6. 根据真实使用结果决定是否冻结 `shishan/v1.1`，以及 600 节点截断是否演进为按层级折叠或服务端分页；
-7. 多 AI 平台 Skill、macOS 与 Windows 兼容性保持延期，除非产品范围重新调整。
+1. 在可操作桌面的 Linux 环境人工点击 VS Code 两个命令，并验证 Web `vscode://` 跳回源码；
+2. 跟踪 `tree-sitter-typescript` 对 `export type *` 等现代语法的支持，为当前 7 个真实 grammar gap 增加最小 fixture，并在上游发布后评估升级；
+3. 用 5–10 个 Codex 编码任务评估 Skill 的同步率、`SHISHAN501` 命中率与噪声；
+4. 选择大于 5,000 文件的仓库，验证首次扫描、长期 watcher/浏览器内存和增量曲线；
+5. 根据真实使用结果决定是否冻结 `shishan/v1.1`，以及 600 节点截断是否演进为按层级折叠或服务端分页；
+6. 多 AI 平台 Skill、macOS 与 Windows 兼容性保持延期，除非产品范围重新调整。
+
+发布状态：分支 `codex/shishan-phase-3b` 已推送，[PR #1](https://github.com/zhyma/shishan/pull/1) 已创建，[Linux CI run #2](https://github.com/zhyma/shishan/actions/runs/33340218912) 的两个 job 均通过。
 
 ## 24. 技术调研来源
 

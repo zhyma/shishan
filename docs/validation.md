@@ -53,7 +53,7 @@
 | 传输增量 | SSE `ProjectPatch` 不含全量 files | 通过 |
 | UI 增量 | Map 只替换 changed entries | 通过 |
 | 真实在线更新 | generation 1 → 2；last update 仅 `order.ts` | 通过 |
-| Linux CI 定义 | Ubuntu + Node 24 测试、类型检查、构建与增量不变量 | 已实现，待远端运行 |
+| Linux CI | Ubuntu + Node 24 测试、类型检查、构建与增量不变量 | 通过 |
 
 ## Phase 3A：叙事可信度与静态分享
 
@@ -98,7 +98,7 @@
 | 人工写入闸门 | 默认 dry-run；只有 approved 可写；已有 plan 不覆盖 | 通过 |
 | 批量安全 | stale hash 无部分写、AST 预验证、ID/换行/插入位置/路径与符号链接防护 | 通过 |
 | Authoring Skill | 新增三种节点规则，仓库版与安装版 `quick_validate.py` 通过且内容一致 | 通过 |
-| Linux CI 定义 | Ubuntu Node 24 覆盖测试、双 fixture strict check、类型检查、全构建和增量不变量 | 已实现，待远端运行 |
+| Linux CI | Ubuntu Node 24 覆盖测试、双 fixture strict check、类型检查、全构建和增量不变量 | 通过 |
 
 Phase 3B 真实浏览器检查：
 
@@ -139,6 +139,8 @@ VS Code 自动化的限制也保留为显式未完成项：桌面控制工具因
 
 ## 自动化测试结果
 
+[PR #1 的 GitHub Actions run #2](https://github.com/zhyma/shishan/actions/runs/33340218912) 已完成；`Linux · Node 24` 与 `Incremental invariants` 两个 job 均为 success。
+
 ```text
 Test Files  14 passed (14)
 Tests      56 passed (56)
@@ -174,7 +176,6 @@ Production source map: disabled
 
 ## 尚未由本地环境证明的内容
 
-- GitHub-hosted Linux workflow 的远端结果（当前分支尚未推送）；
 - VS Code Extension Development Host 中的人工命令点击和 `vscode://` 实际跳转；本地已证明开发宿主加载、manifest、构建、进程参数和 URI 安全逻辑；
 - 大于 5,000 文件仓库的首次扫描体验；
 - C++ 宏、复杂模板与预处理器语义；

@@ -198,7 +198,7 @@ npm run typecheck
 python3 /path/to/skill-creator/scripts/quick_validate.py skills/shishan-author
 ```
 
-测试覆盖协议、Schema、四语言 Golden IR、增量对象复用、Git freshness、CLI 管道输出、静态导出、资源上限、路径隔离、服务补丁和 Web 状态合并。GitHub Actions 当前只在 Linux Node 24 环境运行测试、类型检查和构建；远端结果需要分支推送后确认。
+测试覆盖协议、Schema、四语言 Golden IR、增量对象复用、Git freshness、CLI 管道输出、静态导出、资源上限、路径隔离、服务补丁和 Web 状态合并。GitHub Actions 当前只在 Linux Node 24 环境运行测试、类型检查和构建；[PR #1 的 CI run #2](https://github.com/zhyma/shishan/actions/runs/33340218912) 中 `Linux · Node 24` 与 `Incremental invariants` 均已通过。
 
 验证记录见 [docs/validation.md](docs/validation.md)。
 
