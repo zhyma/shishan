@@ -1,5 +1,4 @@
-import { memo, useMemo, useState } from 'react';
-import Dagre from '@dagrejs/dagre';
+import { memo, useEffect, useMemo, useState } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -14,6 +13,15 @@ import type {
   NarrativeNode,
   SourceRange
 } from '@shishan/protocol';
+import {
+  GRAPH_NODE_WIDTH,
+  MAX_GRAPH_NODES,
+  layoutWithDagre,
+  needsLargeGraphLayout,
+  prepareGraph,
+  resolveLargeGraphLayout,
+  type GraphPosition
+} from './graph-layout.js';
 
 interface NarrativeGraphProps {
   narrative: NarrativeNode;
@@ -29,16 +37,28 @@ const kindLabels: Record<NarrativeNode['kind'], string> = {
   function: 'Function',
   step: 'Step',
   branch: 'Decision',
-  loop: 'Loop'
+  loop: 'Loop',
+  call: 'Call',
+  error: 'Error boundary',
+  async: 'Async wait'
 };
-const MAX_GRAPH_NODES = 200;
 
 function NarrativeCard({
   narrative,
   onSelectSource
 }: NarrativeCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const condition = narrative.fields.condition?.[0];
+  const semanticFields = [
+    ['If', narrative.fields.condition],
+    ['Calls', narrative.fields.target],
+    ['Failure', narrative.fields.failure],
+    ['Resume', narrative.fields.resume]
+  ]
+    .flatMap(([label, values]) =>
+      Array.isArray(values)
+        ? values.slice(0, 2).map((value) => ({ label, value }))
+        : []
+    );
 
   return (
     <article className={'narrative-card kind-' + narrative.kind}>
@@ -54,10 +74,15 @@ function NarrativeCard({
       </div>
       <h3>{narrative.name ?? narrative.localId}</h3>
       <p>{narrative.summary || 'No summary provided.'}</p>
-      {condition ? (
-        <p className="condition">
-          <span>If</span> {condition}
-        </p>
+      {semanticFields.length > 0 ? (
+        <dl className="semantic-fields">
+          {semanticFields.map((field, index) => (
+            <div key={field.label + ':' + index}>
+              <dt>{field.label}</dt>
+              <dd>{field.value}</dd>
+            </div>
+          ))}
+        </dl>
       ) : null}
       {narrative.details.length > 0 ? (
         <div className="detail-area">
@@ -90,28 +115,6 @@ function NarrativeCard({
   );
 }
 
-function limitedNodes(root: NarrativeNode): {
-  narratives: NarrativeNode[];
-  truncated: boolean;
-} {
-  const narratives: NarrativeNode[] = [];
-  const stack = [root];
-  while (stack.length > 0 && narratives.length < MAX_GRAPH_NODES) {
-    const node = stack.pop();
-    if (!node) {
-      continue;
-    }
-    narratives.push(node);
-    for (let index = node.children.length - 1; index >= 0; index -= 1) {
-      const child = node.children[index];
-      if (child) {
-        stack.push(child);
-      }
-    }
-  }
-  return { narratives, truncated: stack.length > 0 };
-}
-
 function edgeLabel(kind: NarrativeEdge['kind'], label?: string): string {
   if (label) {
     return label;
@@ -130,100 +133,101 @@ function edgeLabel(kind: NarrativeEdge['kind'], label?: string): string {
   }
 }
 
-function layout(
-  root: NarrativeNode,
-  onSelectSource: (range: SourceRange) => void
-): { nodes: Node[]; edges: Edge[]; truncated: boolean } {
-  const width = 286;
-  const height = 150;
-  const graph = new Dagre.graphlib.Graph();
-  graph.setDefaultEdgeLabel(() => ({}));
-  graph.setGraph({
-    rankdir: 'TB',
-    ranksep: 74,
-    nodesep: 46,
-    marginx: 24,
-    marginy: 24
-  });
-
-  const limited = limitedNodes(root);
-  const narratives = limited.narratives;
-  const visibleIds = new Set(narratives.map((narrative) => narrative.id));
-  const narrativeEdges = narratives
-    .flatMap((narrative) => narrative.edges)
-    .filter(
-      (item) => visibleIds.has(item.source) && visibleIds.has(item.target)
-    );
-  for (const narrative of narratives) {
-    graph.setNode(narrative.id, { width, height });
-  }
-  for (const item of narrativeEdges) {
-    graph.setEdge(item.source, item.target);
-  }
-  Dagre.layout(graph);
-
-  const nodes: Node[] = narratives.map((narrative) => {
-    const position = graph.node(narrative.id) as { x: number; y: number };
-    return {
-      id: narrative.id,
-      position: {
-        x: position.x - width / 2,
-        y: position.y - height / 2
-      },
-      style: {
-        width,
-        border: 'none',
-        background: 'transparent',
-        padding: 0
-      },
-      data: {
-        label: (
-          <NarrativeCard
-            narrative={narrative}
-            onSelectSource={onSelectSource}
-          />
-        )
-      }
-    };
-  });
-  const edges: Edge[] = narrativeEdges.map((item) => ({
-    id: item.id,
-    source: item.source,
-    target: item.target,
-    label: edgeLabel(item.kind, item.label),
-    type: 'smoothstep',
-    animated: item.kind === 'body',
-    className: 'edge-' + item.kind,
-    labelStyle: {
-      fill: '#54615b',
-      fontSize: 11,
-      fontWeight: 650
-    },
-    style: {
-      strokeWidth: 1.8
-    }
-  }));
-  return { nodes, edges, truncated: limited.truncated };
-}
-
 export const NarrativeGraph = memo(function NarrativeGraph({
   narrative,
   onSelectSource
 }: NarrativeGraphProps) {
-  const graph = useMemo(
-    () => layout(narrative, onSelectSource),
-    [narrative, onSelectSource]
+  const model = useMemo(() => prepareGraph(narrative), [narrative]);
+  const fallbackPositions = useMemo(() => layoutWithDagre(model), [model]);
+  const [largePositions, setLargePositions] = useState<
+    ReadonlyMap<string, GraphPosition> | undefined
+  >();
+  const [layoutStatus, setLayoutStatus] = useState<
+    'dagre' | 'loading' | 'elk' | 'fallback'
+  >('dagre');
+
+  useEffect(() => {
+    let active = true;
+    setLargePositions(undefined);
+    if (!needsLargeGraphLayout(model)) {
+      setLayoutStatus('dagre');
+      return () => {
+        active = false;
+      };
+    }
+
+    setLayoutStatus('loading');
+    void resolveLargeGraphLayout(model, async () => {
+      const { layoutWithElk } = await import('./elk-layout.js');
+      return layoutWithElk(model);
+    }).then((result) => {
+      if (active) {
+        setLargePositions(result.positions);
+        setLayoutStatus(result.engine);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [model]);
+
+  const positions = largePositions ?? fallbackPositions;
+  const nodes = useMemo<Node[]>(
+    () =>
+      model.narratives.map((item) => ({
+        id: item.id,
+        position: positions.get(item.id) ?? { x: 0, y: 0 },
+        style: {
+          width: GRAPH_NODE_WIDTH,
+          border: 'none',
+          background: 'transparent',
+          padding: 0
+        },
+        data: {
+          label: (
+            <NarrativeCard
+              narrative={item}
+              onSelectSource={onSelectSource}
+            />
+          )
+        }
+      })),
+    [model.narratives, onSelectSource, positions]
+  );
+  const edges = useMemo<Edge[]>(
+    () =>
+      model.edges.map((item) => ({
+        id: item.id,
+        source: item.source,
+        target: item.target,
+        label: edgeLabel(item.kind, item.label),
+        type: 'smoothstep',
+        animated: item.kind === 'body',
+        className: 'edge-' + item.kind,
+        labelStyle: {
+          fill: '#54615b',
+          fontSize: 11,
+          fontWeight: 650
+        },
+        style: { strokeWidth: 1.8 }
+      })),
+    [model.edges]
   );
 
   return (
-    <div className="graph-canvas" data-testid="narrative-graph">
+    <div
+      className="graph-canvas"
+      data-testid="narrative-graph"
+      data-layout-engine={layoutStatus}
+      data-visible-nodes={model.narratives.length}
+    >
       <ReactFlow
-        key={narrative.id}
-        nodes={graph.nodes}
-        edges={graph.edges}
+        key={narrative.id + ':' + layoutStatus}
+        nodes={nodes}
+        edges={edges}
         fitView
         fitViewOptions={{ padding: 0.22, maxZoom: 1.05 }}
-        minZoom={0.35}
+        minZoom={0.08}
         maxZoom={1.5}
         nodesDraggable={false}
         nodesConnectable={false}
@@ -243,8 +247,14 @@ export const NarrativeGraph = memo(function NarrativeGraph({
         />
         <Controls showInteractive={false} />
       </ReactFlow>
-      {graph.truncated ? (
-        <div className="graph-limit">
+      {layoutStatus === 'loading' ? (
+        <div className="graph-limit">Optimizing large graph layout…</div>
+      ) : null}
+      {layoutStatus === 'fallback' ? (
+        <div className="graph-limit">ELK timed out; using safe fallback layout.</div>
+      ) : null}
+      {model.truncated ? (
+        <div className="graph-limit graph-limit-truncated">
           Showing the first {MAX_GRAPH_NODES} narrative nodes.
         </div>
       ) : null}

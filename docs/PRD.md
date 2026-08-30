@@ -121,9 +121,9 @@ AI 生成代码后，人类通常面对以下困难：
 
 ### 4.1 MVP 目标
 
-1. 定义 `shishan/v1` 跨语言叙事协议；
+1. 定义 `shishan/v1.1` 跨语言叙事协议；
 2. 支持 Python、C++、TypeScript 和 JavaScript；
-3. 支持函数、步骤、分支和循环四种主流程节点，以及精确绑定局部源码的 `detail` 实现细节注解；
+3. MVP 先支持函数、步骤、分支和循环，Phase 3B 扩展调用、错误和异步节点，并保留精确绑定局部源码的 `detail` 实现细节注解；
 4. 提供 AI Authoring Skill，指导 AI 生成和维护合法叙事；
 5. 提供本地 CLI，对仓库进行扫描、校验、导出和启动网页；
 6. 提供独立 Web UI，支持层级浏览、流程图和源码定位；
@@ -176,7 +176,7 @@ MVP 不负责：
 | --- | --- |
 | 叙事注释 | 写在源码附近、符合 ShiShan 协议的结构化自然语言 |
 | 锚点 | 叙事注释所绑定的真实 AST 节点和源码范围 |
-| 叙事节点 | `function`、`step`、`branch`、`loop` 等语言无关节点 |
+| 叙事节点 | `function`、`step`、`branch`、`loop`、`call`、`error`、`async` 等语言无关节点 |
 | 实现细节注解 | `detail`；附着在叙事节点上的精确源码说明，默认不进入主流程图 |
 | 叙事图 | 由节点、顺序、嵌套和控制关系组成的可视化模型 |
 | IR | 解析器输出的语言无关中间表示 |
@@ -234,7 +234,7 @@ MVP 支持人或 AI 逐步补充叙事，但不要求一次性覆盖整个仓库
 MVP 推荐“源码内嵌为规范来源，独立 IR 为生成产物”：
 
 - 完整自然语言解释写在源码注释中；
-- `shishan init` 创建 `.shishan/config.json`，由项目级配置声明 `protocolVersion: "shishan/v1"`；
+- `shishan init` 创建项目级配置，由配置声明 `protocolVersion: "shishan/v1.1"`；
 - `.shishan/cache` 保存可丢弃的本地解析缓存；
 - `shishan export` 可生成 JSON IR，但该文件不是人工编辑的规范来源；
 - 暂不把详细叙事拆到 sidecar 文件，避免源码与解释失去位置关联。
@@ -305,9 +305,9 @@ for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
 4. `function` 必须绑定函数、方法或等价声明；
 5. `loop` 必须绑定循环 AST 节点；
 6. `branch` 必须绑定条件或模式匹配 AST 节点；
-7. `step` 从其后的第一个同层语句开始，覆盖到下一个同层主流程叙事块（`function`、`step`、`branch`、`loop`）或当前父级代码块结束；嵌入其中的 `detail` 不会截断 `step`；
+7. `step` 绑定其后的第一个同层语句；`call`、`error`、`async` 还必须分别由真实调用、错误边界和异步语法验证；嵌入其中的 `detail` 不会制造独立主流程；
 8. `detail` 默认绑定紧随其后的一个同层 AST 语句；`@covers statements=N` 可以绑定接下来的 N 个连续同层 AST 语句；
-9. `detail` 附着到最近的 `function`、`step`、`branch` 或 `loop`，不生成主流程边；
+9. `detail` 附着到包含其语句范围的最小主流程节点，不生成主流程边；
 10. 协议不持久化物理行号；解析器每次根据 AST 重新计算 `detail` 的实际源码范围；
 11. ID 在所属函数内唯一；函数 ID 在所属文件内唯一；
 12. 完整 ID 由项目相对路径、符号和局部 ID 组合，不依赖行号；
@@ -392,7 +392,7 @@ y = max(0, min(height - 1, round(y)))
 
 ```typescript
 interface NarrativeProject {
-  protocolVersion: "shishan/v1";
+  protocolVersion: "shishan/v1.1";
   root: string;
   files: NarrativeFile[];
   diagnostics: Diagnostic[];
@@ -400,7 +400,7 @@ interface NarrativeProject {
 
 interface NarrativeNode {
   id: string;
-  kind: "function" | "step" | "branch" | "loop";
+  kind: "function" | "step" | "branch" | "loop" | "call" | "error" | "async";
   summary: string;
   fields: Record<string, string | string[]>;
   source: SourceRange;
@@ -490,11 +490,11 @@ Skill 必须指导 AI：
 
 | 编号 | 需求 | 优先级 |
 | --- | --- | --- |
-| FR-001 | 识别 `shishan/v1` 注释块 | P0 |
+| FR-001 | 识别 `shishan/v1.1` 注释块 | P0 |
 | FR-002 | 将注释绑定到真实 AST 节点 | P0 |
 | FR-003 | 支持四种目标语言 | P0 |
 | FR-004 | 输出统一 JSON IR | P0 |
-| FR-005 | 支持函数、步骤、分支和循环四种主流程节点 | P0 |
+| FR-005 | 支持函数、步骤、分支、循环、调用、错误和异步主流程节点 | P0 |
 | FR-006 | 支持 `detail` 默认单语句绑定和 `@covers statements=N` 连续语句绑定 | P0 |
 | FR-007 | 对孤立、错误类型、重复 ID 和越界 `@covers` 生成诊断 | P0 |
 | FR-008 | 支持按文件增量重新解析 | P1 |
@@ -1026,38 +1026,46 @@ React Flow 核心是 MIT 开源项目，适合自定义叙事节点、循环容�
 - 静态站点在无 ShiShan API 的静态 HTTP 服务中可浏览；
 - 默认静态包不泄露源码。
 
-### Phase 3B：后续维护性与集成（未开始）
+### Phase 3B：后续维护性与集成（已实现，按产品决策仅验证 Linux）
 
-候选内容：
+交付物：
 
-- VS Code 薄扩展；
-- 调用、错误和异步节点；
-- 大型图布局升级；
-- 既有代码批量注释工作流。
+- 协议升级到 `shishan/v1.1`，新增 `call`、`error`、`async` 节点以及 `@target`、`@failure`、`@resume` 字段；四种主语言都必须由真实 AST 结构验证，而不是只相信注释名称；
+- Web 为新增节点提供独立视觉语义；80 个节点以上动态加载 ELK Web Worker，单次布局预算 5 秒，失败回退 Dagre，最多渲染 600 个节点；
+- Linux VS Code 薄扩展，复用 CLI/Web 实现打开叙事、运行 strict freshness check，并通过受限 URI Handler 从 Web 返回 workspace 内源码；
+- `annotate-plan` 与 `annotate-apply` 人工确认工作流：生成器不填业务 summary，只有 `approved` 项可应用，默认 dry-run，显式 `--write` 才修改源码；
+- 批量写入前统一验证 plan 结构、内容哈希、函数位置、单行字段、语法和 AST 绑定；任一文件失效时不写任何文件。
+
+退出条件：
+
+- Python、C++、TypeScript、JavaScript fixture 都能正确绑定三种新增节点，错误 kind 仍产生结构诊断，IR 通过 JSON Schema；
+- 小图和大图选择策略、600 节点资源上限、ELK 超时回退均有自动化验证；
+- VS Code 扩展可构建，命令路径与 URI 路径隔离有自动化测试，Web 只在 live 模式显示编辑器跳转；
+- 批量流程证明 draft 不写、dry-run 不写、approved 可写、源码过期不产生部分写入、注入和手改插入位置会被拒绝；
+- Linux Node 24 下全量测试、类型检查、生产构建、strict check、增量 benchmark 与 live/static 浏览器回归通过。
 
 多 AI 平台 Skill，以及 macOS/Windows 兼容性，按当前产品决策明确延期，不属于 Phase 3B 验收范围。
 
-## 22. 进入 Phase 3B 前需要对齐的产品决策
+## 22. Phase 3B 已采用的产品决策
 
-Phase 3A 技术基线完成后，需要确认：
+本阶段按以下决策实施：
 
-1. v1 是否接受“完整叙事内嵌源码”的方案；
-2. `@shishan` 行式协议的可读性是否符合预期；
-3. Web 第一屏更偏“项目/函数大纲”还是“流程图”；
-4. 当前 Codex Skill 的生成质量是否达到首版要求；多 AI 平台暂不评估；
-5. 叙事默认使用项目现有语言，还是允许配置统一语言；
-6. MVP 是否要求为已有仓库自动补充叙事；
-7. 项目自身继续采用 MIT 许可证，还是另行决定；
-8. 静态分享默认隐藏源码的安全策略是否符合使用场景。
+1. 行式注释语法保持不变；新增节点以 `shishan/v1.1` 明确版本化，不在 `step` 中暗藏语义；
+2. Web 保持“项目/函数大纲 + 当前函数流程图”，大图只升级布局引擎，不改变信息架构；
+3. 既有仓库只生成待审核候选，不让模型或工具自动写入猜测的业务意图；
+4. 静态分享继续默认隐藏源码；VS Code 跳转只存在于 live 模式，并限制在当前 workspace；
+5. 当前仅维护 Codex `shishan-author` Skill；多 AI 平台 Skill 暂不评估；
+6. 当前交付与 CI 仅面向 Linux；macOS 与 Windows 暂不纳入兼容承诺；
+7. 项目继续采用 MIT；ELK.js 以 EPL-2.0 OR GPL-3.0-or-later 作为独立运行时依赖并保留许可证汇总。
 
 ## 23. 推荐的下一步行动
 
-1. 推送实现分支并确认 Linux CI；
-2. 选择一个真实中型仓库，持续试用 live freshness 与静态分享；
-3. 用 5–10 个 AI 编码任务评估 Skill 的同步率、`SHISHAN501` 命中率与噪声；
-4. 根据试用结果冻结 `shishan/v1`；
-5. 在 VS Code 薄扩展、调用/错误/异步节点和大型图布局之间选择 Phase 3B 第一项；
-6. 定义既有代码批量注释的人工确认边界，避免自动写入错误业务叙事。
+1. 推送 Phase 3B 实现分支并确认 Linux GitHub Actions；
+2. 选择一个真实中型仓库，持续试用 live freshness、静态分享、VS Code 跳转和 annotation plan；
+3. 用 5–10 个 Codex 编码任务评估 Skill 的同步率、`SHISHAN501` 命中率与噪声；
+4. 根据真实使用结果决定是否冻结 `shishan/v1.1`；
+5. 评估 600 节点截断是否需要演进为按层级折叠或服务端分页；
+6. 多 AI 平台 Skill、macOS 与 Windows 兼容性保持延期，除非产品范围重新调整。
 
 ## 24. 技术调研来源
 

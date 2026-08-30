@@ -28,10 +28,15 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Check cross-language narrative fixtures
+        run: |
+          node apps/cli/dist/main.js check fixtures/polyglot --strict --no-freshness
+          node apps/cli/dist/main.js check fixtures/advanced --strict --no-freshness
+
       - name: Check TypeScript projects
         run: npm run typecheck
 
-      - name: Build packages and Web UI
+      - name: Build packages, Web UI, and VS Code adapter
         run: npm run build
 
   incremental-benchmark:

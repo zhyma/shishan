@@ -2,18 +2,21 @@
 
 ShiShan 是一套“代码叙事协议 + 本地解析器 + Web 可视化工具”。AI 在写代码时留下结构化自然语言说明，ShiShan 用真实 AST 校验这些说明绑定到哪个函数、分支、循环或具体语句，再把结果展示成可逐层展开的流程图。
 
-当前分支已经实现 PRD 的 Phase 0–2 和 Phase 3A 维护性基线，支持：
+当前分支已经实现 PRD 的 Phase 0–3B 技术基线，支持：
 
 - Python；
 - C++；
 - TypeScript 与 TSX；
 - JavaScript 与 JSX；
-- `function`、`step`、`branch`、`loop` 主流程节点；
+- `function`、`step`、`branch`、`loop`、`call`、`error`、`async` 主流程节点；
 - 默认隐藏、按需展开的 `detail` 实现细节；
 - CLI 扫描、校验、JSON 导出和本地 Web 服务；
 - 文件级监听、Tree-sitter 增量解析和 SSE 差量补丁；
 - 基于固定 Git revision 的疑似过期叙事检测；
 - 不依赖 ShiShan API 的只读静态站点导出；
+- 80 节点以上动态启用 ELK Worker、600 节点上限和超时回退的大图布局；
+- Linux VS Code 薄扩展，可启动 Web、执行严格检查并从 Web 跳回源码；
+- 既有代码的人工审核批量注释计划，默认 dry-run；
 - 可独立安装的 ShiShan Authoring Skill。
 
 当前交付和 CI 只面向 Linux。macOS、Windows 与多 AI 平台 Skill 已明确延期。
@@ -61,6 +64,8 @@ def calculate_order(prices):
 
 `detail` 默认绑定下一条 AST 语句。`@covers statements=2` 表示连续两条同层语句；它会作为函数或流程节点上的实现说明出现，不会制造新的流程节点或边。
 
+`call`、`error`、`async` 会分别校验真实调用、异常边界和等待/协程语法；awaited call 应写成一个 `async` 节点，并可用 `@target` 保留调用目标。四语言完整样例见 [fixtures/advanced](fixtures/advanced)。
+
 完整规范见 [docs/protocol.md](docs/protocol.md)，四语言可运行样例见 [fixtures/polyglot](fixtures/polyglot)。
 
 ## CLI
@@ -73,6 +78,10 @@ def calculate_order(prices):
 | `shishan export [root] [--out file] [--base HEAD]` | 导出带 freshness 诊断、符合 JSON Schema 的完整 IR |
 | `shishan serve [root] [--port 4173] [--base HEAD]` | 启动仅监听 loopback 的本地 Web 服务和增量监听 |
 | `shishan export-site [root] [--out directory]` | 导出静态站点；默认不含源码，`--include-source` 显式打包源码 |
+| `shishan annotate-plan [root] [--out path]` | 为无叙事函数生成 summary 为空、status 为 draft 的人工审核计划 |
+| `shishan annotate-apply [root] [--plan path] [--write]` | 校验 approved 项；默认 dry-run，显式 `--write` 后才原子替换源文件 |
+
+`annotate-plan` 不会覆盖已有审核计划；如需重新生成，先明确移动或删除旧 plan，避免丢失人工填写的 summary 和审批状态。
 
 在本仓库中可以用 `npm run shishan -- <command>` 代替全局命令。
 
@@ -101,22 +110,34 @@ Skill 会要求代理：
 - 重新计算 `detail` 的覆盖语句数；
 - 完成后运行 `shishan check`。
 
+## VS Code 薄扩展（Linux）
+
+扩展位于 [apps/vscode](apps/vscode)。构建整个项目后，在 VS Code Extension Development Host 中加载该目录，可执行：
+
+- `ShiShan: Open Code Narrative`：复用或启动 loopback Web 服务，并在 Simple Browser 打开；
+- `ShiShan: Check Narrative Freshness`：运行 `check --strict --base HEAD`；
+- Web 源码面板的 `Open in VS Code`：通过扩展 URI Handler 回到对应文件和位置。
+
+URI Handler 会拒绝绝对路径、目录穿越和不属于当前 workspace 的文件。扩展不包含独立解析器，只作为 CLI/Web 的薄适配层。
+
 ## 架构
 
 ```mermaid
 flowchart LR
   A["AI / developer + Authoring Skill"] --> B["Annotated source"]
   B --> C["Tree-sitter adapters"]
-  C --> D["shishan/v1 IR + JSON Schema"]
+  C --> D["shishan/v1.1 IR + JSON Schema"]
   D --> E["CLI / local Fastify server"]
   E -->|"initial snapshot"| F["Web project Map"]
   G["Chokidar changed paths"] --> H["ProjectIndex cache"]
   H -->|"Tree.edit + one-file parse"| D
   E -->|"SSE ProjectPatch"| F
-  F --> I["React Flow + Dagre"]
+  F --> I["React Flow + Dagre / ELK Worker"]
   J["Pinned Git revision"] --> K["AST token + narrative fingerprints"]
   K -->|"SHISHAN501 on changed file"| H
   D --> L["Static site + embedded snapshot"]
+  M["VS Code thin adapter"] --> E
+  F -->|"validated vscode URI"| M
 ```
 
 核心实现分为：
@@ -125,6 +146,7 @@ flowchart LR
 - [packages/core](packages/core)：四语言适配、AST 绑定、Golden IR 和增量项目索引；
 - [apps/cli](apps/cli)：命令行、本地 HTTP/SSE 服务和文件监听；
 - [apps/web](apps/web)：项目/函数浏览、流程图、诊断、`detail` 展开和源码定位；
+- [apps/vscode](apps/vscode)：Linux VS Code 命令、CLI 进程管理和受限源码 URI 跳转；
 - [skills/shishan-author](skills/shishan-author)：AI 生产者规则。
 
 详细数据流与安全边界见 [docs/architecture.md](docs/architecture.md)。
@@ -169,7 +191,7 @@ python3 /path/to/skill-creator/scripts/quick_validate.py skills/shishan-author
 | Ajv | JSON Schema 校验 | MIT |
 | Fastify / Chokidar | 本地服务与文件监听 | MIT |
 | React / React Flow | Web UI 与流程图 | MIT |
-| Dagre | 自动图布局 | MIT |
+| Dagre / ELK.js | 小图同步布局 / 大图 Worker 布局 | MIT / EPL-2.0 OR GPL-3.0-or-later |
 | Vite / Vitest | Web 构建与测试 | MIT |
 
 依赖版本锁定在 [package-lock.json](package-lock.json)。Vite 构建会生成第三方许可证汇总。
@@ -183,5 +205,5 @@ python3 /path/to/skill-creator/scripts/quick_validate.py skills/shishan-author
 - [产品需求文档](docs/PRD.md)
 - [协议规范](docs/protocol.md)
 - [技术架构](docs/architecture.md)
-- [Phase 0–3A 验证记录](docs/validation.md)
+- [Phase 0–3B 验证记录](docs/validation.md)
 - [MIT License](LICENSE.md)

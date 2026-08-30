@@ -1,0 +1,60 @@
+{
+  "name": "shishan-vscode",
+  "displayName": "ShiShan Code Narrative",
+  "description": "Open the ShiShan narrative UI and navigate back to source.",
+  "version": "0.1.0",
+  "private": true,
+  "publisher": "zhyma",
+  "license": "MIT",
+  "engines": {
+    "vscode": ">=1.85.0"
+  },
+  "categories": ["Visualization", "Other"],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onCommand:shishan.openNarrative",
+    "onCommand:shishan.checkNarrative",
+    "onUri"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "shishan.openNarrative",
+        "title": "ShiShan: Open Code Narrative"
+      },
+      {
+        "command": "shishan.checkNarrative",
+        "title": "ShiShan: Check Narrative Freshness"
+      }
+    ],
+    "configuration": {
+      "title": "ShiShan",
+      "properties": {
+        "shishan.cliPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to apps/cli/dist/main.js or an installed ShiShan CLI entry point. Relative paths resolve from the workspace root."
+        },
+        "shishan.port": {
+          "type": "integer",
+          "default": 4173,
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "Loopback port for the local ShiShan Web server."
+        },
+        "shishan.freshnessBase": {
+          "type": "string",
+          "default": "HEAD",
+          "description": "Git revision used for freshness checks."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/vscode": "1.85.0"
+  }
+}

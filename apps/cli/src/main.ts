@@ -13,6 +13,13 @@ import {
 import type { Diagnostic, ProjectSnapshot } from '@shishan/protocol';
 import { createShiShanServer } from './server.js';
 import { exportStaticSite } from './static-export.js';
+import {
+  DEFAULT_ANNOTATION_PLAN,
+  applyAnnotationPlan,
+  createAnnotationPlan,
+  readAnnotationPlan,
+  writeAnnotationPlan
+} from './annotation-plan.js';
 
 interface ParsedArguments {
   command: string;
@@ -50,7 +57,7 @@ function parseArguments(argv: string[]): ParsedArguments {
   const flags = new Map<string, string | true>();
   let root = '.';
   let rootAssigned = false;
-  const valueFlags = new Set(['host', 'port', 'out', 'base']);
+  const valueFlags = new Set(['host', 'port', 'out', 'base', 'plan']);
 
   for (let index = 1; index < argv.length; index += 1) {
     const value = argv[index];
@@ -95,10 +102,14 @@ function help(): string {
     '  shishan export [root] [--out path] [--base HEAD]',
     '  shishan export-site [root] [--out directory] [--include-source] [--base HEAD]',
     '  shishan serve [root] [--host 127.0.0.1] [--port 4173] [--base HEAD]',
+    '  shishan annotate-plan [root] [--out .shishan/annotation-plan.json]',
+    '  shishan annotate-apply [root] [--plan .shishan/annotation-plan.json] [--write]',
     '',
     'Freshness checks compare implementation and narrative changes against Git HEAD.',
     'Use --no-freshness to disable Git comparison.',
-    'The server sends a complete snapshot once, then file-level patches only.'
+    'The server sends a complete snapshot once, then file-level patches only.',
+    'Annotation plans never invent summaries; only approved entries are eligible to write.',
+    'annotate-apply is a dry run unless --write is present.'
   ].join('\n');
 }
 
@@ -281,6 +292,50 @@ async function init(root: string): Promise<void> {
   }
 }
 
+async function annotatePlan(arguments_: ParsedArguments): Promise<void> {
+  const output = arguments_.flags.get('out');
+  if (output === true) {
+    throw new Error('--out requires a path relative to the project root.');
+  }
+  const path = typeof output === 'string' ? output : DEFAULT_ANNOTATION_PLAN;
+  const plan = await createAnnotationPlan(arguments_.root);
+  const written = await writeAnnotationPlan(arguments_.root, path, plan);
+  const candidates = plan.files.reduce(
+    (total, file) => total + file.candidates.length,
+    0
+  );
+  await writeOutput(
+    'Wrote ' + written + ' with ' + candidates + ' draft candidates in ' +
+      plan.files.length + ' files.'
+  );
+  await writeOutput(
+    'Review each summary and set status to approved or skipped; draft entries are never applied.'
+  );
+}
+
+async function annotateApply(arguments_: ParsedArguments): Promise<void> {
+  const requested = arguments_.flags.get('plan');
+  if (requested === true) {
+    throw new Error('--plan requires a path relative to the project root.');
+  }
+  const path = typeof requested === 'string' ? requested : DEFAULT_ANNOTATION_PLAN;
+  const plan = await readAnnotationPlan(arguments_.root, path);
+  const write = arguments_.flags.has('write');
+  const result = await applyAnnotationPlan(arguments_.root, plan, write);
+  await writeOutput(
+    (write ? 'Applied ' : 'Dry run validated ') +
+      result.approved +
+      ' approved annotations across ' +
+      result.files +
+      ' files (' +
+      result.reviewed +
+      ' reviewed candidates).'
+  );
+  if (!write) {
+    await writeOutput('No source files changed. Re-run with --write after reviewing the plan.');
+  }
+}
+
 async function serve(arguments_: ParsedArguments): Promise<void> {
   const portValue = arguments_.flags.get('port');
   if (portValue === true) {
@@ -350,6 +405,12 @@ async function main(): Promise<void> {
       break;
     case 'serve':
       await serve(arguments_);
+      break;
+    case 'annotate-plan':
+      await annotatePlan(arguments_);
+      break;
+    case 'annotate-apply':
+      await annotateApply(arguments_);
       break;
     case 'help':
     case '--help':

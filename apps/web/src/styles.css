@@ -49,6 +49,11 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
+a:focus-visible {
+  outline: 3px solid rgba(70, 120, 91, 0.3);
+  outline-offset: 2px;
+}
+
 .app-shell {
   display: grid;
   grid-template-rows: 72px minmax(0, 1fr);
@@ -492,6 +497,10 @@ button:focus-visible {
   box-shadow: 0 5px 16px rgba(37, 54, 44, 0.08);
 }
 
+.graph-limit-truncated {
+  top: 49px;
+}
+
 .react-flow__node {
   border-radius: 14px;
 }
@@ -555,6 +564,18 @@ button:focus-visible {
   background: #577c8d;
 }
 
+.narrative-card.kind-call::before {
+  background: #6f63a6;
+}
+
+.narrative-card.kind-error::before {
+  background: #b45e55;
+}
+
+.narrative-card.kind-async::before {
+  background: #358796;
+}
+
 .card-kicker {
   display: flex;
   align-items: center;
@@ -589,14 +610,31 @@ button:focus-visible {
   line-height: 1.48;
 }
 
-.narrative-card .condition {
-  margin-top: 8px;
-  color: #7a5d32;
+.semantic-fields {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
 }
 
-.condition span {
-  margin-right: 3px;
+.semantic-fields > div {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 6px;
+  color: #53615a;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.semantic-fields dt {
+  color: #7d6a4b;
   font-weight: 800;
+}
+
+.semantic-fields dd {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .detail-area {
@@ -685,7 +723,23 @@ button:focus-visible {
   white-space: nowrap;
 }
 
-.source-panel > header > span {
+.source-actions {
+  flex: none;
+  justify-items: end;
+}
+
+.source-actions a {
+  color: #b7d2bf;
+  font-size: 9px;
+  font-weight: 720;
+  text-decoration: none;
+}
+
+.source-actions a:hover {
+  text-decoration: underline;
+}
+
+.source-actions span {
   flex: none;
   color: #94a49a;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;

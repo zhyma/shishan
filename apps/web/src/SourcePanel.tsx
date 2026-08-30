@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { SourceRange } from '@shishan/protocol';
+import { vscodeSourceUrl } from './editor-link.js';
 
 interface SourcePanelProps {
   range?: SourceRange;
@@ -92,9 +93,14 @@ export function SourcePanel({
           <span className="eyebrow">Source</span>
           <strong>{range.path}</strong>
         </div>
-        <span>
-          L{range.start.line + 1}–{range.end.line + 1}
-        </span>
+        <div className="source-actions">
+          {!staticMode ? (
+            <a href={vscodeSourceUrl(range)}>Open in VS Code</a>
+          ) : null}
+          <span>
+            L{range.start.line + 1}–{range.end.line + 1}
+          </span>
+        </div>
       </header>
       {error ? <p className="source-error">{error}</p> : null}
       {!error && visible.lines.length === 0 ? (

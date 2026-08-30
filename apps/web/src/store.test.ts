@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PROTOCOL_VERSION } from '@shishan/protocol';
 import type {
   FileAnalysis,
   ProjectPatch,
@@ -54,7 +55,7 @@ const coverage = {
 describe('project patch store', () => {
   it('replaces only changed file objects', () => {
     const snapshot: ProjectSnapshot = {
-      protocolVersion: 'shishan/v1',
+      protocolVersion: PROTOCOL_VERSION,
       generation: 1,
       rootName: 'demo',
       files: [file('a.ts', 'a1'), file('b.ts', 'b1')],
@@ -64,7 +65,7 @@ describe('project patch store', () => {
     const state = stateFromSnapshot(snapshot);
     const untouched = state.files.get('b.ts');
     const patch: ProjectPatch = {
-      protocolVersion: 'shishan/v1',
+      protocolVersion: PROTOCOL_VERSION,
       generation: 2,
       upsertFiles: [file('a.ts', 'a2')],
       removedFiles: [],
@@ -88,7 +89,7 @@ describe('project patch store', () => {
 
   it('ignores duplicate or out-of-order patches', () => {
     const state = stateFromSnapshot({
-      protocolVersion: 'shishan/v1',
+      protocolVersion: PROTOCOL_VERSION,
       generation: 3,
       rootName: 'demo',
       files: [file('a.ts', 'a3')],
@@ -96,7 +97,7 @@ describe('project patch store', () => {
       metrics
     });
     const stale: ProjectPatch = {
-      protocolVersion: 'shishan/v1',
+      protocolVersion: PROTOCOL_VERSION,
       generation: 2,
       upsertFiles: [file('a.ts', 'stale')],
       removedFiles: [],

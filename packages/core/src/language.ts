@@ -13,6 +13,9 @@ export interface LanguageDefinition {
   statementTypes: ReadonlySet<string>;
   branchTypes: ReadonlySet<string>;
   loopTypes: ReadonlySet<string>;
+  callTypes: ReadonlySet<string>;
+  errorTypes: ReadonlySet<string>;
+  asyncTypes: ReadonlySet<string>;
 }
 
 const PYTHON_FUNCTIONS = new Set(['function_definition']);
@@ -22,6 +25,13 @@ const PYTHON_BRANCHES = new Set([
   'try_statement'
 ]);
 const PYTHON_LOOPS = new Set(['for_statement', 'while_statement']);
+const PYTHON_CALLS = new Set(['call']);
+const PYTHON_ERRORS = new Set([
+  'try_statement',
+  'raise_statement',
+  'assert_statement'
+]);
+const PYTHON_ASYNC = new Set(['await', 'yield']);
 const PYTHON_STATEMENTS = new Set([
   ...PYTHON_FUNCTIONS,
   ...PYTHON_BRANCHES,
@@ -61,6 +71,9 @@ const JAVASCRIPT_LOOPS = new Set([
   'while_statement',
   'do_statement'
 ]);
+const JAVASCRIPT_CALLS = new Set(['call_expression', 'new_expression']);
+const JAVASCRIPT_ERRORS = new Set(['try_statement', 'throw_statement']);
+const JAVASCRIPT_ASYNC = new Set(['await_expression', 'yield_expression']);
 const JAVASCRIPT_STATEMENTS = new Set([
   ...JAVASCRIPT_FUNCTIONS,
   ...JAVASCRIPT_BRANCHES,
@@ -95,6 +108,13 @@ const CPP_LOOPS = new Set([
   'while_statement',
   'do_statement'
 ]);
+const CPP_CALLS = new Set(['call_expression', 'new_expression']);
+const CPP_ERRORS = new Set(['try_statement', 'throw_statement']);
+const CPP_ASYNC = new Set([
+  'co_await_expression',
+  'co_yield_statement',
+  'co_return_statement'
+]);
 const CPP_STATEMENTS = new Set([
   ...CPP_FUNCTIONS,
   ...CPP_BRANCHES,
@@ -117,7 +137,10 @@ const DEFINITIONS: Record<SupportedLanguage, LanguageDefinition> = {
     functionTypes: PYTHON_FUNCTIONS,
     statementTypes: PYTHON_STATEMENTS,
     branchTypes: PYTHON_BRANCHES,
-    loopTypes: PYTHON_LOOPS
+    loopTypes: PYTHON_LOOPS,
+    callTypes: PYTHON_CALLS,
+    errorTypes: PYTHON_ERRORS,
+    asyncTypes: PYTHON_ASYNC
   },
   cpp: {
     id: 'cpp',
@@ -125,7 +148,10 @@ const DEFINITIONS: Record<SupportedLanguage, LanguageDefinition> = {
     functionTypes: CPP_FUNCTIONS,
     statementTypes: CPP_STATEMENTS,
     branchTypes: CPP_BRANCHES,
-    loopTypes: CPP_LOOPS
+    loopTypes: CPP_LOOPS,
+    callTypes: CPP_CALLS,
+    errorTypes: CPP_ERRORS,
+    asyncTypes: CPP_ASYNC
   },
   javascript: {
     id: 'javascript',
@@ -133,7 +159,10 @@ const DEFINITIONS: Record<SupportedLanguage, LanguageDefinition> = {
     functionTypes: JAVASCRIPT_FUNCTIONS,
     statementTypes: JAVASCRIPT_STATEMENTS,
     branchTypes: JAVASCRIPT_BRANCHES,
-    loopTypes: JAVASCRIPT_LOOPS
+    loopTypes: JAVASCRIPT_LOOPS,
+    callTypes: JAVASCRIPT_CALLS,
+    errorTypes: JAVASCRIPT_ERRORS,
+    asyncTypes: JAVASCRIPT_ASYNC
   },
   jsx: {
     id: 'jsx',
@@ -141,7 +170,10 @@ const DEFINITIONS: Record<SupportedLanguage, LanguageDefinition> = {
     functionTypes: JAVASCRIPT_FUNCTIONS,
     statementTypes: JAVASCRIPT_STATEMENTS,
     branchTypes: JAVASCRIPT_BRANCHES,
-    loopTypes: JAVASCRIPT_LOOPS
+    loopTypes: JAVASCRIPT_LOOPS,
+    callTypes: JAVASCRIPT_CALLS,
+    errorTypes: JAVASCRIPT_ERRORS,
+    asyncTypes: JAVASCRIPT_ASYNC
   },
   typescript: {
     id: 'typescript',
@@ -149,7 +181,10 @@ const DEFINITIONS: Record<SupportedLanguage, LanguageDefinition> = {
     functionTypes: JAVASCRIPT_FUNCTIONS,
     statementTypes: JAVASCRIPT_STATEMENTS,
     branchTypes: JAVASCRIPT_BRANCHES,
-    loopTypes: JAVASCRIPT_LOOPS
+    loopTypes: JAVASCRIPT_LOOPS,
+    callTypes: JAVASCRIPT_CALLS,
+    errorTypes: JAVASCRIPT_ERRORS,
+    asyncTypes: JAVASCRIPT_ASYNC
   },
   tsx: {
     id: 'tsx',
@@ -157,7 +192,10 @@ const DEFINITIONS: Record<SupportedLanguage, LanguageDefinition> = {
     functionTypes: JAVASCRIPT_FUNCTIONS,
     statementTypes: JAVASCRIPT_STATEMENTS,
     branchTypes: JAVASCRIPT_BRANCHES,
-    loopTypes: JAVASCRIPT_LOOPS
+    loopTypes: JAVASCRIPT_LOOPS,
+    callTypes: JAVASCRIPT_CALLS,
+    errorTypes: JAVASCRIPT_ERRORS,
+    asyncTypes: JAVASCRIPT_ASYNC
   }
 };
 

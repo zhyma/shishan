@@ -1,4 +1,4 @@
-export const PROTOCOL_VERSION = 'shishan/v1' as const;
+export const PROTOCOL_VERSION = 'shishan/v1.1' as const;
 
 export type SupportedLanguage =
   | 'python'
@@ -8,7 +8,14 @@ export type SupportedLanguage =
   | 'javascript'
   | 'jsx';
 
-export type NarrativeKind = 'function' | 'step' | 'branch' | 'loop';
+export type NarrativeKind =
+  | 'function'
+  | 'step'
+  | 'branch'
+  | 'loop'
+  | 'call'
+  | 'error'
+  | 'async';
 export type AnnotationKind = NarrativeKind | 'detail';
 export type ParseMode = 'full' | 'incremental' | 'reused';
 export type DiagnosticSeverity = 'error' | 'warning' | 'info';

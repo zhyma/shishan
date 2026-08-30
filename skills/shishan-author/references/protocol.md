@@ -10,7 +10,7 @@ An annotation is a contiguous block of single-line comments:
 <comment> @field <value>
 ```
 
-Supported kinds are `function`, `step`, `branch`, `loop`, and `detail`.
+Supported kinds are `function`, `step`, `branch`, `loop`, `call`, `error`, `async`, and `detail`.
 
 Supported fields are:
 
@@ -19,6 +19,9 @@ Supported fields are:
 - `@condition`: natural-language decision or loop condition.
 - `@effect`: repeatable observable effects.
 - `@note`: caveats that matter to a reviewer.
+- `@target`: repeatable call targets for `call` or call-bearing `async` nodes.
+- `@failure`: repeatable failure outcomes for `error` nodes.
+- `@resume`: the continuation after an `async` suspension.
 - `@label`: optional short display label.
 - `@covers statements=N`: detail-only span of positive `N` consecutive sibling statements.
 
@@ -30,9 +33,14 @@ Positions are structural. The annotation binds to the next AST statement at the 
 - `step` is a normal flow node.
 - `branch` is a decision node. Annotated statements inside its AST range become children.
 - `loop` is a repetition node. Annotated statements inside its AST range become body children.
+- `call` is a statement that structurally contains a call or construction expression.
+- `error` is a `try`, `throw`, `raise`, assertion, or equivalent error boundary.
+- `async` is a statement that structurally contains an await, yield, coroutine wait, or coroutine return.
 - `detail` is an attached callout. It never becomes a flow node or creates an edge.
 
-Details attach to the smallest annotated flow node containing their statement span. When no step, branch, or loop contains that span, they attach to the function.
+Details attach to the smallest annotated flow node containing their statement span. When no step, branch, loop, call, error, or async node contains that span, they attach to the function.
+
+Only one flow annotation may bind to one AST target. For an awaited call, prefer `async` and add `@target` when the callee matters; do not stack `call` and `async` blocks on the same statement.
 
 ## Python Example
 
@@ -41,7 +49,7 @@ Details attach to the smallest annotated flow node containing their statement sp
 # @summary Calculate the final order price
 # @input item prices
 # @output final price
-def price_order(prices):
+async def price_order(prices):
     # @shishan detail prepare-values
     # @summary Copy prices and compute the subtotal
     # @covers statements=2
@@ -53,6 +61,11 @@ def price_order(prices):
     # @condition total is at least 100
     if total >= 100:
         total *= 0.9
+
+    # @shishan async persist-total
+    # @summary Wait for the total to be persisted
+    # @resume return the persisted value
+    total = await store.save(total)
 
     # @shishan step return-total
     # @summary Return the final price
@@ -88,7 +101,12 @@ Use `//` comments in `.ts`, `.tsx`, `.js`, and `.jsx` files.
 ```typescript
 // @shishan function select-label
 // @summary Select a display label for the current state
-export const selectLabel = (ready: boolean): string => {
+export const selectLabel = (): string => {
+  // @shishan call read-state
+  // @summary Read the latest initialization state
+  // @target stateStore.read
+  const ready = stateStore.read();
+
   // @shishan branch choose-ready-label
   // @summary Return the ready label when initialization is complete
   // @condition ready is true

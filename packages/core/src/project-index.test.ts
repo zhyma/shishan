@@ -17,6 +17,9 @@ const fixtureRoot = fileURLToPath(
 const goldenPath = fileURLToPath(
   new URL('../../../fixtures/golden/polyglot.json', import.meta.url)
 );
+const advancedFixtureRoot = fileURLToPath(
+  new URL('../../../fixtures/advanced', import.meta.url)
+);
 
 function projectNode(node: NarrativeNode): object {
   return {
@@ -54,6 +57,87 @@ const simpleTs = (value: number): string =>
   ].join('\n');
 
 describe('ProjectIndex', () => {
+  it('binds call, error, and async nodes in every primary language', async () => {
+    const index = await ProjectIndex.create(advancedFixtureRoot);
+    const snapshot = await index.initialize();
+
+    expect(snapshot.files.map((file) => file.language)).toEqual([
+      'cpp',
+      'javascript',
+      'python',
+      'typescript'
+    ]);
+    expect(snapshot.files).toHaveLength(4);
+    for (const file of snapshot.files) {
+      expect(file.syntaxError, file.path).toBe(false);
+      expect(
+        file.diagnostics.filter((item) => item.severity !== 'info'),
+        file.path
+      ).toEqual([]);
+      expect(file.functions[0]?.children.map((item) => item.kind)).toEqual([
+        'call',
+        'error'
+      ]);
+      expect(file.functions[0]?.children[1]?.children[0]?.kind).toBe('async');
+    }
+    expect(validateProtocolPayload(snapshot)).toEqual({
+      valid: true,
+      errors: []
+    });
+  });
+
+  it('rejects semantic node kinds when the target AST does not contain that behavior', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'shishan-semantic-kind-'));
+    await writeFile(
+      join(root, 'invalid.ts'),
+      [
+        '// @shishan function inspect-value',
+        '// @summary Inspect one value',
+        'export function inspectValue(value: number) {',
+        '  // @shishan call not-a-call',
+        '  // @summary This target contains no call',
+        '  return value;',
+        '}',
+        ''
+      ].join('\n')
+    );
+    const index = await ProjectIndex.create(root);
+    const snapshot = await index.initialize();
+
+    expect(snapshot.files[0]?.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'SHISHAN302', annotationId: 'not-a-call' })
+      ])
+    );
+    expect(snapshot.files[0]?.functions[0]?.children).toEqual([]);
+  });
+
+  it('does not treat calls inside a newly declared nested function as an executed call', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'shishan-nested-call-'));
+    await writeFile(
+      join(root, 'nested.ts'),
+      [
+        '// @shishan function declare-loader',
+        '// @summary Declare a deferred loader',
+        'export function declareLoader(gateway: Gateway) {',
+        '  // @shishan call execute-loader',
+        '  // @summary Execute the gateway loader now',
+        '  const loadLater = () => gateway.load();',
+        '  return loadLater;',
+        '}',
+        ''
+      ].join('\n')
+    );
+    const index = await ProjectIndex.create(root);
+    const snapshot = await index.initialize();
+
+    expect(snapshot.files[0]?.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'SHISHAN302', annotationId: 'execute-loader' })
+      ])
+    );
+  });
+
   it('matches the cross-language golden IR and validates its schema', async () => {
     const index = await ProjectIndex.create(fixtureRoot);
     const snapshot = await index.initialize();

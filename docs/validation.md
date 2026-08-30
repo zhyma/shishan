@@ -1,4 +1,4 @@
-# Phase 0–3A 验证记录
+# Phase 0–3B 验证记录
 
 验证日期：2026-08-30
 本地环境：Linux x86_64、Node.js 24.18.0、npm 11.16.0
@@ -7,7 +7,7 @@
 
 | 验证项 | 证据 | 结果 |
 | --- | --- | --- |
-| 版本化协议 | `PROTOCOL_VERSION = shishan/v1` | 通过 |
+| 版本化协议 | `PROTOCOL_VERSION = shishan/v1.1` | 通过 |
 | JSON Schema | Draft 2020-12 snapshot/patch Schema + Ajv | 通过 |
 | 四语言同构 IR | Python、C++、TS、JS fixtures | 通过 |
 | JSX/TSX 方言 | 独立 JSX、TSX fixtures | 通过 |
@@ -81,20 +81,49 @@
 - 恢复 fixture 后再次回到 `0 stale`；
 - live、包含源码的 static、默认不含源码的 static 页面 console warning/error 均为 0。
 
+## Phase 3B：语义节点、集成与批量维护
+
+| 验证项 | 证据 | 结果 |
+| --- | --- | --- |
+| 调用/错误/异步协议 | `NarrativeKind`、annotation parser、JSON Schema 同步升级到 v1.1 | 通过 |
+| 四语言 AST 绑定 | Python、C++、TypeScript、JavaScript advanced fixtures 均形成 call → error → async 层级 | 通过 |
+| 错误 kind 拒绝 | 无调用语句上的 `call` 与只在 nested function 内出现的调用均产生 `SHISHAN302` | 通过 |
+| Web 语义 | Call、Error boundary、Async wait 独立卡片和 target/failure/resume 字段 | 通过 |
+| 大图策略 | 80 节点以上走 ELK；最多 600 节点；5 秒预算与 Dagre 回退单元测试 | 通过 |
+| ELK 真实运行 | 97 张卡片的 live 页面报告 `data-layout-engine=elk`，console error/warning 为 0 | 通过 |
+| VS Code 构建 | `shishan-vscode` CommonJS 扩展被顶层 typecheck/build 覆盖 | 通过 |
+| 源码 URI 隔离 | 绝对路径、目录穿越、workspace 外符号链接均拒绝；live href 使用一基坐标 | 通过 |
+| 静态分享隔离 | static 页面仍展示三种语义节点，但不显示 `Open in VS Code` 且默认无源码 | 通过 |
+| 批量草案 | 实际 CLI 生成 `status=draft`、`summary=null`，不会猜测业务意图 | 通过 |
+| 人工写入闸门 | 默认 dry-run；只有 approved 可写；已有 plan 不覆盖 | 通过 |
+| 批量安全 | stale hash 无部分写、AST 预验证、ID/换行/插入位置/路径与符号链接防护 | 通过 |
+| Authoring Skill | 新增三种节点规则，仓库版与安装版 `quick_validate.py` 通过且内容一致 | 通过 |
+| Linux CI 定义 | Ubuntu Node 24 覆盖测试、双 fixture strict check、类型检查、全构建和增量不变量 | 已实现，待远端运行 |
+
+Phase 3B 真实浏览器检查：
+
+- advanced live 项目显示 4/4 functions、100% coverage、0 diagnostics；
+- C++ 函数图依次展示 Function、Call、Error boundary、Async wait，并显示 `client.load`、失败结果和恢复语义；
+- live 源码面板给出 `vscode://zhyma.shishan-vscode/open?...`，static 模式不生成该入口；
+- 97 节点 synthetic function 实际渲染 97 张卡片并完成 ELK Worker 布局；
+- advanced live、advanced static、97 节点 live 页面控制台均为 0 条日志。
+
 ## 自动化测试结果
 
 ```text
-Test Files  8 passed (8)
-Tests      32 passed (32)
+Test Files  13 passed (13)
+Tests      53 passed (53)
 ```
 
 完整构建：
 
 ```text
-TypeScript protocol/core/cli build: passed
-Vite production build: 176 modules transformed
-Web JS gzip: 136.60 kB
-Web CSS gzip: 5.49 kB
+TypeScript protocol/core/cli/vscode build: passed
+Vite production build: 183 modules transformed
+Web main JS gzip: 137.97 kB
+ELK lazy layout JS gzip: 2.20 kB
+ELK worker asset: 1,595.33 kB
+Web CSS gzip: 5.62 kB
 Production source map: disabled
 ```
 
@@ -104,12 +133,12 @@ Production source map: disabled
 
 | 指标 | 结果 |
 | --- | ---: |
-| 初始扫描 | 152.78 ms |
-| 单文件更新 | 0.78 ms |
+| 初始扫描 | 157.37 ms |
+| 单文件更新 | 0.75 ms |
 | 更新时解析文件 | 1 |
 | 复用文件 | 249 |
-| 初始 snapshot | 393,274 bytes |
-| 单文件 patch | 1,984 bytes |
+| 初始 snapshot | 393,277 bytes |
+| 单文件 patch | 1,986 bytes |
 | patch / snapshot | 0.50% |
 
 这些数字用于发现性能回退，不作为不同机器上的 SLA。CI 的 benchmark job 断言结构不变量，不断言绝对耗时。
@@ -117,6 +146,7 @@ Production source map: disabled
 ## 尚未由本地环境证明的内容
 
 - GitHub-hosted Linux workflow 的远端结果（当前分支尚未推送）；
+- VS Code Extension Development Host 中的人工命令点击；本地已证明 manifest、构建、进程参数和 URI 安全逻辑；
 - 大于 5,000 文件仓库的首次扫描体验；
 - C++ 宏、复杂模板与预处理器语义；
 - 长时间运行时的 watcher/浏览器内存曲线；

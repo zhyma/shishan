@@ -16,6 +16,9 @@ const KINDS = new Set<AnnotationKind>([
   'step',
   'branch',
   'loop',
+  'call',
+  'error',
+  'async',
   'detail'
 ]);
 const ALLOWED_FIELDS = new Set([
@@ -25,10 +28,19 @@ const ALLOWED_FIELDS = new Set([
   'condition',
   'effect',
   'note',
+  'target',
+  'failure',
+  'resume',
   'covers',
   'label'
 ]);
-const SINGLE_FIELDS = new Set(['summary', 'condition', 'covers', 'label']);
+const SINGLE_FIELDS = new Set([
+  'summary',
+  'condition',
+  'resume',
+  'covers',
+  'label'
+]);
 
 function makeDiagnostic(
   token: CommentToken,
@@ -140,7 +152,7 @@ export function parseAnnotationComments(
           header,
           'SHISHAN102',
           'Unknown annotation kind: ' + rawKind + '.',
-          'Use function, step, branch, loop, or detail.'
+          'Use function, step, branch, loop, call, error, async, or detail.'
         )
       );
       continue;

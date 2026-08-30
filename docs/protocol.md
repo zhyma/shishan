@@ -1,8 +1,8 @@
-# ShiShan v1 协议规范
+# ShiShan v1.1 协议规范
 
 ## 1. 目标
 
-`shishan/v1` 把“代码事实”和“自然语言解释”分开：
+`shishan/v1.1` 把“代码事实”和“自然语言解释”分开：
 
 - Tree-sitter AST 决定函数、语句、分支、循环、嵌套和源码范围；
 - `@shishan` 注释提供目的、条件、输入、输出和实现理由；
@@ -20,7 +20,7 @@
 
 规则：
 
-- `kind` 为 `function`、`step`、`branch`、`loop` 或 `detail`；
+- `kind` 为 `function`、`step`、`branch`、`loop`、`call`、`error`、`async` 或 `detail`；
 - `id` 必须匹配 `^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$`；
 - `@summary` 必须出现且应只有一个；
 - 一个 block 必须是同一缩进、同一注释前缀的连续单行注释；
@@ -37,6 +37,9 @@
 | `@condition` | 否 | 分支或循环的自然语言条件 |
 | `@effect` | 是 | 外部可见副作用 |
 | `@note` | 是 | 评审者需要知道的限制 |
+| `@target` | 是 | `call` 或含调用的 `async` 节点目标；一条语句有多个关键调用时可重复 |
+| `@failure` | 是 | `error` 的失败结果或传播路径 |
+| `@resume` | 否 | `async` 恢复执行后的下一步 |
 | `@label` | 否 | 可选短显示名 |
 | `@covers statements=N` | 否 | `detail` 专用，`N` 为正整数 |
 
@@ -50,7 +53,12 @@
 - JS/TS 的 export 或变量声明可以作为函数外壳，解析器继续绑定其中直接命名的 arrow/function；
 - `branch` 必须绑定 `if`、`switch`、Python `match` 或 `try` 等决策结构；
 - `loop` 必须绑定 `for`、`while` 或对应循环结构；
+- `call` 必须绑定内部确实包含调用或构造表达式的语句；
+- `error` 必须绑定 `try`、`throw`、`raise`、assert 或对应错误边界；
+- `async` 必须绑定内部确实包含 await、yield、`co_await`、`co_yield` 或 coroutine return 的语句；
 - `step` 与 `detail` 绑定普通语句或控制结构。
+
+同一 AST 目标只能有一个主流程 annotation。一个 `await service.load()` 同时包含调用和等待时，通常选择更能解释控制流的 `async`，并用 `@target service.load` 保留调用信息；不要把 `call` 与 `async` 两个 block 叠在同一语句上。
 
 行列在 IR 中使用零基坐标，Web UI 和诊断文本展示为一基坐标。
 
@@ -79,17 +87,17 @@ const key = hash(normalized);
 ## 4. 层级与边
 
 - 函数是叙事根；
-- 绑定范围被 branch/loop 范围包含的 flow 节点成为其 child；
+- 绑定范围被 branch/loop/error 等结构范围包含的 flow 节点成为其 child；
 - sibling 默认以 `next` 相连；
 - branch 的内部入口为 `true`，离开到下一 sibling 为 `false`；
 - loop 的内部入口为 `body`，离开到下一 sibling 为 `exit`。
 
-v1 表达的是可读叙事关系，不承诺完整编译器级 CFG。
+v1.1 表达的是可读叙事关系，不承诺完整编译器级 CFG。`call`、`error` 和 `async` 当前沿用 `next` 边；其语义由节点 kind 与字段表达，不虚构编译器无法证明的成功/失败控制流。
 
 ## 5. ID 作用域
 
 - function ID 在单个文件内唯一；
-- step/branch/loop/detail ID 在所属函数内唯一；
+- step/branch/loop/call/error/async/detail ID 在所属函数内唯一；
 - IR 全局 ID 由标准化相对路径、function ID 和 local ID 组合，源码移动之外保持稳定。
 
 ## 6. IR
@@ -122,7 +130,7 @@ v1 表达的是可读叙事关系，不承诺完整编译器级 CFG。
 
 ## 8. Git freshness
 
-freshness 不改变 `shishan/v1` IR 拓扑，而是在 `FileAnalysis.diagnostics` 中增加维护性提示：
+freshness 不改变 `shishan/v1.1` IR 拓扑，而是在 `FileAnalysis.diagnostics` 中增加维护性提示：
 
 1. 启动时把 `--base`（默认 `HEAD`）解析并固定为 commit hash；
 2. 仅对 Git 报告为 changed 的当前文件读取 baseline 版本；
@@ -136,9 +144,10 @@ freshness 不改变 `shishan/v1` IR 拓扑，而是在 `FileAnalysis.diagnostics
 
 ## 9. 版本与兼容
 
-- payload 必须携带 `protocolVersion: "shishan/v1"`；
-- v1 内可添加可选字段，但不得改变现有字段语义；
+- payload 必须携带 `protocolVersion: "shishan/v1.1"`；
+- v1.1 保留 v1 的全部注释语法与字段语义，并新增三种 flow kind 和三个可选字段；
+- 只接受精确 `shishan/v1` payload 的消费者需要升级后再读取 v1.1 payload；
 - 破坏性语法或 IR 变化必须使用新协议版本；
 - grammar 升级必须通过跨语言 Golden IR 测试。
 
-完整样例位于 [fixtures/polyglot](../fixtures/polyglot)，期望结果位于 [fixtures/golden/polyglot.json](../fixtures/golden/polyglot.json)。
+基础样例位于 [fixtures/polyglot](../fixtures/polyglot)，期望结果位于 [fixtures/golden/polyglot.json](../fixtures/golden/polyglot.json)。`call`、`error`、`async` 的四语言样例位于 [fixtures/advanced](../fixtures/advanced)。

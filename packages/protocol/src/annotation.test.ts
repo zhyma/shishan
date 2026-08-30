@@ -86,4 +86,28 @@ describe('parseAnnotationComments', () => {
       'SHISHAN202'
     ]);
   });
+
+  it('parses call, error, and async annotations with semantic fields', () => {
+    const result = parseAnnotationComments([
+      token(1, '@shishan call load-order'),
+      token(2, '@summary Load an order from the gateway'),
+      token(3, '@target gateway.load'),
+      token(5, '@shishan error protect-load'),
+      token(6, '@summary Preserve the load failure boundary'),
+      token(7, '@failure the gateway rejects the request'),
+      token(9, '@shishan async await-load'),
+      token(10, '@summary Wait for the gateway response'),
+      token(11, '@resume continue with the loaded order')
+    ]);
+
+    expect(result.diagnostics).toEqual([]);
+    expect(result.annotations.map((item) => item.kind)).toEqual([
+      'call',
+      'error',
+      'async'
+    ]);
+    expect(result.annotations[2]?.fields.resume).toEqual([
+      'continue with the loaded order'
+    ]);
+  });
 });

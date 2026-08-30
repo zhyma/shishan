@@ -8,6 +8,7 @@
 | `packages/core` | 语言识别、Tree-sitter、AST 绑定、项目索引、Git freshness | HTTP 和 UI |
 | `apps/cli` | CLI、Fastify、SSE、Chokidar、静态站点导出 | 执行被分析代码 |
 | `apps/web` | 项目 Map、流程图、源码/诊断视图、live/static 启动 | 扫描本机文件系统 |
+| `apps/vscode` | Linux VS Code 命令、CLI 子进程生命周期、受限源码 URI 跳转 | 复制 parser 或 Web UI |
 | `skills/shishan-author` | 约束 AI 创建和维护叙事 | 代替 parser 验证 |
 
 ## 2. 首次扫描
@@ -110,7 +111,7 @@ Git 基线在启动时解析为固定 commit hash，避免运行过程中 `HEAD`
 - JavaScript；
 - JSX。
 
-适配器声明 function、statement、branch 和 loop node type 集合。公共 analyzer 完成：
+适配器声明 function、statement、branch、loop、call、error 和 async node type 集合。公共 analyzer 完成：
 
 - 注释 token 化和协议解析；
 - 同缩进下一 AST 节点绑定；
@@ -140,6 +141,7 @@ Web 启动时优先读取 `globalThis.__SHISHAN_STATIC__`；存在时不请求 `
 - watcher 事件合并 75 ms；
 - SSE 20 秒 heartbeat 不携带项目树；
 - Web 源码面板只渲染选中范围前后少量上下文。
+- 80 个节点以上才动态加载 ELK Worker；单次布局最多 600 个节点、5 秒，失败回退 Dagre；
 - freshness 初始只读取 Git changed-path 列表，后续只查询 watcher 批次路径；
 - 每个 Git baseline 文件最多解析一次并缓存 AST；
 - 静态导出源码默认关闭，启用后总量不超过 25 MiB；
@@ -153,7 +155,18 @@ Web 启动时优先读取 `globalThis.__SHISHAN_STATIC__`；存在时不请求 `
 - patch 只包含一个 upsert；
 - 输出 patch 与 snapshot 的字节比例。
 
-## 8. 安全边界
+## 8. VS Code 与批量注释边界
+
+VS Code 扩展不嵌入第二套解析器。`Open Code Narrative` 通过参数数组启动现有 CLI loopback server，再交给 VS Code Simple Browser；`Check Narrative Freshness` 同样直接运行 CLI strict check。Web 的编辑器链接使用 `vscode://zhyma.shishan-vscode/open`，URI Handler 重新做 workspace-relative 归一化、存在性检查和一基/零基坐标转换，不接受任意绝对文件。
+
+批量注释拆为两个显式阶段：
+
+1. `annotate-plan` 只列出无叙事函数、稳定候选 ID、源码位置与内容哈希，`summary` 保持 `null`、`status` 保持 `draft`；
+2. 用户填写事实性 summary 并改为 `approved` 后，`annotate-apply` 先统一验证所有文件；默认只 dry-run，`--write` 才逐文件用 sibling 临时文件和 rename 替换。
+
+应用前会重新检查内容 hash、函数名和位置、插入行、ID、字段单行性、完整输出语法和 AST 绑定。预验证任何一步失败都发生在首次 source rename 之前，避免因为仓库已变化而出现部分写入。
+
+## 9. 安全边界
 
 - 只允许 `127.0.0.1`、`localhost` 或 `::1` 监听；
 - Host 和 Origin 必须是 loopback；
@@ -165,13 +178,15 @@ Web 启动时优先读取 `globalThis.__SHISHAN_STATIC__`；存在时不请求 `
 - 响应带 CSP、`nosniff` 和 `no-referrer`。
 - Git 通过 `execFile` 参数数组调用，不经过 shell；基线 revision 在启动时固定；
 - 静态导出不覆盖已有目录，默认不包含目标仓库源码。
+- VS Code URI 只打开当前 workspace 内已存在文件；扩展和 CLI 均不经过 shell；
+- annotation plan 路径和其中的 source path 必须留在项目根目录，draft/skip 永不写入，summary 和字段不能注入换行。
 
-## 9. 已知技术边界
+## 10. 已知技术边界
 
-- v1 edge 是面向理解的叙事关系，不是完整 CFG；
+- v1.1 edge 是面向理解的叙事关系，不是完整 CFG；
 - C++ 不进行预处理器展开、模板实例化或编译数据库语义解析；
 - Unicode edit 使用 UTF-8 byte position 交给 Tree-sitter，Golden 测试仍需继续扩充复杂 Unicode 边界；
-- 大型项目首次快照仍与项目规模线性相关；
+- 大型项目首次快照仍与项目规模线性相关；单函数超过 600 个叙事节点时 Web 显式截断；
 - Web 暂不提供跨函数调用图；
 - freshness 暂不跨 Git rename 关联旧路径，也不证明修改后的叙事语义正确；
 - 当前交付与 CI 只面向 Linux，macOS 和 Windows 已按产品决策延期；

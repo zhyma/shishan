@@ -12,7 +12,7 @@ Read [references/protocol.md](references/protocol.md) before authoring or changi
 ## Workflow
 
 1. Inspect the target function and all nearby `@shishan` blocks before editing.
-2. Identify the function's intent, meaningful actions, decisions, loops, and unusually important implementation details.
+2. Identify the function's intent, meaningful actions, decisions, loops, important calls, error boundaries, asynchronous waits, and unusually important implementation details.
 3. Update code and narrative together. Preserve accurate user-written prose when behavior has not changed.
 4. Place each block immediately above its AST target and at the same indentation.
 5. Run `shishan check <root> --strict`. Fix binding, syntax, and freshness diagnostics before finishing.
@@ -24,6 +24,10 @@ Read [references/protocol.md](references/protocol.md) before authoring or changi
 - Add a `step` for a meaningful action or state transition, not for routine syntax.
 - Add a `branch` directly above the `if`, `switch`, `match`, or equivalent decision it describes.
 - Add a `loop` directly above the `for`, `while`, or equivalent repetition it describes.
+- Add a `call` directly above a statement containing a reviewer-important function, constructor, or service call. Use `@target` when the callee is not obvious.
+- Add an `error` directly above a `try`, `throw`, `raise`, or assertion boundary. Use `@failure` for important failure outcomes.
+- Add an `async` directly above a statement containing `await`, `yield`, `co_await`, or an equivalent suspension point. Use `@resume` when the continuation matters.
+- Keep one flow annotation per AST target. For an awaited call, prefer `async` and add `@target` when the callee matters; do not stack `call` and `async` on one statement.
 - Add a `detail` when one or a few concrete statements deserve explanation but should not become flow nodes.
 - Leave ordinary implementation lines unannotated when their meaning is already clear from the surrounding narrative.
 
@@ -34,6 +38,7 @@ Read [references/protocol.md](references/protocol.md) before authoring or changi
 - Add exactly one concise `@summary`. Describe purpose or effect, not source syntax.
 - Keep the header and fields in consecutive single-line comments using the language's normal comment prefix.
 - Repeat `@input`, `@output`, `@effect`, or `@note` when multiple values are needed.
+- Repeat `@target` on `call` or call-bearing `async` nodes and `@failure` on error nodes when multiple values matter. Keep `@resume` singular.
 - Use `@condition` on decisions when the condition is not obvious in natural language.
 - A `detail` binds to the next statement by default. Use `@covers statements=N` only for consecutive sibling statements in the same syntax block.
 - Never use `@covers` on flow nodes. Details do not create graph edges.
@@ -56,5 +61,5 @@ Read [references/protocol.md](references/protocol.md) before authoring or changi
 - `shishan check` reports no errors caused by the change.
 - No changed implementation is left with an unresolved `SHISHAN501` warning.
 - Each annotation binds to the intended AST node.
-- Function inputs, outputs, major decisions, and loops are understandable from the narrative.
+- Function inputs, outputs, major decisions, loops, important calls, error paths, and asynchronous waits are understandable from the narrative.
 - Detailed callouts are useful when expanded and do not overwhelm the default flow.

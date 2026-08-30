@@ -161,7 +161,15 @@
           "type": "string"
         },
         "kind": {
-          "enum": ["function", "step", "branch", "loop"]
+          "enum": [
+            "function",
+            "step",
+            "branch",
+            "loop",
+            "call",
+            "error",
+            "async"
+          ]
         },
         "name": {
           "type": "string"
@@ -449,7 +457,7 @@
       ],
       "properties": {
         "protocolVersion": {
-          "const": "shishan/v1"
+          "const": "shishan/v1.1"
         },
         "generation": {
           "type": "integer",
@@ -485,7 +493,7 @@
       ],
       "properties": {
         "protocolVersion": {
-          "const": "shishan/v1"
+          "const": "shishan/v1.1"
         },
         "generation": {
           "type": "integer",

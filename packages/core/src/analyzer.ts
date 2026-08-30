@@ -106,6 +106,38 @@ function findDescendant(
   return undefined;
 }
 
+function containsSemanticType(
+  root: Parser.SyntaxNode,
+  definition: LanguageDefinition,
+  types: ReadonlySet<string>
+): boolean {
+  const stack = [root];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (!node) {
+      continue;
+    }
+    if (types.has(node.type)) {
+      return true;
+    }
+    if (
+      node !== root &&
+      (isFunctionNode(definition, node) ||
+        node.type === 'lambda' ||
+        node.type === 'lambda_expression')
+    ) {
+      continue;
+    }
+    for (let index = node.namedChildren.length - 1; index >= 0; index -= 1) {
+      const child = node.namedChildren[index];
+      if (child) {
+        stack.push(child);
+      }
+    }
+  }
+  return false;
+}
+
 function readableIdentifier(node: Parser.SyntaxNode): string | undefined {
   const allowed = new Set([
     'identifier',
@@ -236,6 +268,18 @@ function bindAnnotation(
     }
   } else if (annotation.kind === 'loop') {
     if (definition.loopTypes.has(next.type)) {
+      return { bound: { annotation, node: next } };
+    }
+  } else if (annotation.kind === 'call') {
+    if (containsSemanticType(next, definition, definition.callTypes)) {
+      return { bound: { annotation, node: next } };
+    }
+  } else if (annotation.kind === 'error') {
+    if (containsSemanticType(next, definition, definition.errorTypes)) {
+      return { bound: { annotation, node: next } };
+    }
+  } else if (annotation.kind === 'async') {
+    if (containsSemanticType(next, definition, definition.asyncTypes)) {
       return { bound: { annotation, node: next } };
     }
   } else if (isStatementNode(definition, next)) {
