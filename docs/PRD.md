@@ -2,7 +2,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 文档状态 | v0.3，Phase 0–2 与 Phase 3A 维护性基线已实现，待真实仓库试用 |
+| 文档状态 | v0.4，Phase 0–3B 已实现，Hono 中型仓库首轮试用已完成 |
 | 日期 | 2026-08-30 |
 | 产品阶段 | Linux 优先的四语言本地 MVP 与叙事可信度验证 |
 | 第一阶段语言 | Python、C++、TypeScript、JavaScript |
@@ -1060,12 +1060,17 @@ React Flow 核心是 MIT 开源项目，适合自定义叙事节点、循环容�
 
 ## 23. 推荐的下一步行动
 
-1. 推送 Phase 3B 实现分支并确认 Linux GitHub Actions；
-2. 选择一个真实中型仓库，持续试用 live freshness、静态分享、VS Code 跳转和 annotation plan；
-3. 用 5–10 个 Codex 编码任务评估 Skill 的同步率、`SHISHAN501` 命中率与噪声；
-4. 根据真实使用结果决定是否冻结 `shishan/v1.1`；
-5. 评估 600 节点截断是否需要演进为按层级折叠或服务端分页；
-6. 多 AI 平台 Skill、macOS 与 Windows 兼容性保持延期，除非产品范围重新调整。
+Hono `e2740d5` 的第一轮中型仓库试用已经完成：357 个受支持源码文件、1,791 个函数，live/static 浏览器链路通过；试用发现并修复了大于 32 KiB 源码解析失败、节点计数不准确、中型图初始缩放过小和更新摘要过长的问题。
+
+仍未完成的里程碑按优先级为：
+
+1. 推送当前实现并确认 Linux GitHub Actions 的远端结果；
+2. 在可操作桌面的 Linux 环境人工点击 VS Code 两个命令，并验证 Web `vscode://` 跳回源码；
+3. 跟踪 `tree-sitter-typescript` 对 `export type *` 等现代语法的支持，为当前 7 个真实 grammar gap 增加最小 fixture，并在上游发布后评估升级；
+4. 用 5–10 个 Codex 编码任务评估 Skill 的同步率、`SHISHAN501` 命中率与噪声；
+5. 选择大于 5,000 文件的仓库，验证首次扫描、长期 watcher/浏览器内存和增量曲线；
+6. 根据真实使用结果决定是否冻结 `shishan/v1.1`，以及 600 节点截断是否演进为按层级折叠或服务端分页；
+7. 多 AI 平台 Skill、macOS 与 Windows 兼容性保持延期，除非产品范围重新调整。
 
 ## 24. 技术调研来源
 

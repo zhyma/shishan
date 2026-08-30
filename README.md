@@ -164,11 +164,30 @@ flowchart LR
 
 开启 freshness 时，启动阶段只读取一次 Git changed-path 列表；每个 watcher 批次只查询批次中的路径。只有确实相对基线发生变化的文件才读取并缓存一份 baseline AST，不会为每次保存重建整个项目。
 
-本机 250 文件基准的一次观测结果：初始化 152.78 ms，单文件更新 0.78 ms，复用 249 个文件；补丁 1,984 bytes，为初始快照的 0.50%。这只是回归基线，不是跨机器性能承诺。运行：
+本机 250 文件基准的一次观测结果：初始化 172.74 ms，单文件更新 0.80 ms，复用 249 个文件；补丁 1,986 bytes，为初始快照的 0.50%。这只是回归基线，不是跨机器性能承诺。运行：
 
 ```bash
 npm run benchmark:incremental -- --files=250
 ```
+
+## 真实中型仓库试用
+
+2026-08-30 使用 [Hono `e2740d5`](https://github.com/honojs/hono/tree/e2740d5a1bd0b4254e517e3af8b60789284bc7bd) 做了第一轮中型 TypeScript 仓库验收。测试只修改 `/tmp` 中的浅克隆，没有向 Hono 上游写入内容；我们在 3 个代表性模块中人工添加了 5 个函数叙事，用来验证真实项目中的分支、循环、递归调用、异步等待和语句级 `detail`。
+
+| 项目 | 本机结果 |
+| --- | ---: |
+| 仓库规模 | 456 个文件；ShiShan 索引 357 个受支持源码文件 |
+| 索引结果 | 1,791 个函数；5 个函数带叙事 |
+| 首次扫描 | 8.83 秒；峰值 RSS 约 255 MiB |
+| live 单文件更新 | 只重算 `src/middleware/etag/digest.ts`；10.10 ms |
+| 默认静态导出 | 约 3.2 MiB；0 份源码；0 个 VS Code 跳转入口 |
+| 浏览器控制台 | live 与 static 均为 0 条 warning/error |
+
+这次试用直接暴露并推动了三项修复：大于 32 KiB 的源码不再触发 Node Tree-sitter `Invalid argument`；函数列表改为显示实际嵌套节点数；中型图的初始缩放和大项目更新摘要变得可读。修复后额外恢复了 16 个此前失败的文件和 510 个函数。
+
+完整仓库仍有 7 个 `SHISHAN001`，来自当前 TypeScript grammar 尚未覆盖的有效新语法或复杂类型签名，例如 `export type *`。这属于已知解析器边界，不应被误报成 Hono 源码错误。所选 3 个注释模块的 strict check 均为 0 errors、0 warnings。
+
+VS Code 1.130.0 的 Extension Development Host 日志已确认加载 [apps/vscode](apps/vscode)。扩展构建、manifest、进程参数与 URI 路径隔离已有自动化验证；实际命令点击和 `vscode://` 跳转仍需在桌面控制可用的 Linux 环境做一次人工复核。
 
 ## 测试与构建
 

@@ -3,7 +3,9 @@ import type { NarrativeNode } from '@shishan/protocol';
 import {
   LARGE_GRAPH_THRESHOLD,
   MAX_GRAPH_NODES,
+  initialGraphMinZoom,
   layoutWithDagre,
+  narrativeNodeLabel,
   needsLargeGraphLayout,
   prepareGraph,
   resolveLargeGraphLayout
@@ -47,6 +49,13 @@ function chain(size: number): NarrativeNode {
 }
 
 describe('large graph layout policy', () => {
+  it('reports the rendered node count and preserves readability for medium graphs', () => {
+    expect(narrativeNodeLabel(chain(15))).toBe('15 nodes');
+    expect(narrativeNodeLabel(chain(MAX_GRAPH_NODES + 25))).toBe('600+ nodes');
+    expect(initialGraphMinZoom(15)).toBe(0.42);
+    expect(initialGraphMinZoom(21)).toBe(0.08);
+  });
+
   it('keeps small graphs on the synchronous layout path', () => {
     expect(needsLargeGraphLayout(prepareGraph(chain(8)))).toBe(false);
   });

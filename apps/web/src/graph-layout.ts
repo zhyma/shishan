@@ -22,6 +22,26 @@ export interface LargeGraphLayoutResult {
   engine: 'elk' | 'fallback';
 }
 
+export function narrativeNodeLabel(root: NarrativeNode): string {
+  let count = 0;
+  const stack = [root];
+  while (stack.length > 0 && count <= MAX_GRAPH_NODES) {
+    const node = stack.pop();
+    if (!node) {
+      continue;
+    }
+    count += 1;
+    stack.push(...node.children);
+  }
+  return count > MAX_GRAPH_NODES
+    ? MAX_GRAPH_NODES + '+ nodes'
+    : count + (count === 1 ? ' node' : ' nodes');
+}
+
+export function initialGraphMinZoom(nodeCount: number): number {
+  return nodeCount <= 20 ? 0.42 : 0.08;
+}
+
 export function prepareGraph(root: NarrativeNode): GraphModel {
   const narratives: NarrativeNode[] = [];
   const stack = [root];

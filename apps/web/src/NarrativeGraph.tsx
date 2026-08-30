@@ -16,6 +16,7 @@ import type {
 import {
   GRAPH_NODE_WIDTH,
   MAX_GRAPH_NODES,
+  initialGraphMinZoom,
   layoutWithDagre,
   needsLargeGraphLayout,
   prepareGraph,
@@ -172,6 +173,7 @@ export const NarrativeGraph = memo(function NarrativeGraph({
   }, [model]);
 
   const positions = largePositions ?? fallbackPositions;
+  const fitViewMinZoom = initialGraphMinZoom(model.narratives.length);
   const nodes = useMemo<Node[]>(
     () =>
       model.narratives.map((item) => ({
@@ -226,7 +228,7 @@ export const NarrativeGraph = memo(function NarrativeGraph({
         nodes={nodes}
         edges={edges}
         fitView
-        fitViewOptions={{ padding: 0.22, maxZoom: 1.05 }}
+        fitViewOptions={{ padding: 0.22, minZoom: fitViewMinZoom, maxZoom: 1.05 }}
         minZoom={0.08}
         maxZoom={1.5}
         nodesDraggable={false}

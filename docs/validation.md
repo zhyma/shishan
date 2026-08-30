@@ -108,19 +108,48 @@ Phase 3B 真实浏览器检查：
 - 97 节点 synthetic function 实际渲染 97 张卡片并完成 ELK Worker 布局；
 - advanced live、advanced static、97 节点 live 页面控制台均为 0 条日志。
 
+## 真实中型仓库：Hono
+
+测试对象：[Hono `e2740d5`](https://github.com/honojs/hono/tree/e2740d5a1bd0b4254e517e3af8b60789284bc7bd)。测试使用 `/tmp` 中的 shallow clone，没有修改或推送 Hono 上游。
+
+| 验证项 | 证据 | 结果 |
+| --- | --- | --- |
+| 仓库规模 | 456 个文件；357 个受支持源码文件进入 ShiShan 索引 | 通过 |
+| 真实注释 | 3 个模块中的 5 个函数，覆盖 branch、loop、call、async、detail | 通过 |
+| 局部严格检查 | `src/client`、`src/middleware/etag`、`src/middleware/language` 均为 0 errors、0 warnings | 通过 |
+| 大文件解析 | 修复前 16 个大于 32 KiB 的文件产生 `SHISHAN003 Invalid argument`；修复后 357/357 文件均进入 parser | 通过 |
+| 函数恢复 | 修复前 1,281 个函数；修复后 1,791 个函数 | 通过 |
+| 首次扫描 | 8.83 s；峰值 RSS 261,184 KiB（约 255 MiB） | 通过，继续观察 |
+| live 更新 | 修改一处叙事后 generation 1 → 2，只解析 `src/middleware/etag/digest.ts`，10.10 ms | 通过 |
+| 中型流程图 | 15 个真实节点使用 Dagre；节点计数、默认缩放、源码行号和 detail 展开正确 | 通过 |
+| static 默认隔离 | 导出约 3.2 MiB；0 source；0 个 `Open in VS Code`；无 API 依赖 | 通过 |
+| 浏览器日志 | live 与 static 的 console warning/error 均为 0 | 通过 |
+| VS Code 开发宿主 | VS Code 1.130.0 renderer log 明确加载 `apps/vscode` 开发扩展 | 部分通过 |
+
+试用中发现并修复：
+
+- Node Tree-sitter 0.21 的默认 32 KiB string callback buffer 会让长源码在多 chunk 路径抛出 `Invalid argument`；parser 现在按源码长度设置 buffer，并覆盖首次与增量解析回归测试；
+- 函数列表原先只显示顶层 children 数量，现改为真实可见节点总数；
+- 15 节点图原先 `fitView` 过度缩小，现为 20 节点以内设置可读的初始最小缩放；
+- 首次加载 357 条完整路径会占满底部状态区，现压缩为 `initial snapshot · 357 files`，多文件增量也会摘要显示。
+
+完整 Hono 扫描仍有 7 个 `SHISHAN001`。检查对应源码后，它们是当前 `tree-sitter-typescript` 对有效现代语法或复杂类型签名的 grammar error node，例如 `export type *`，不是 Hono 语法错误。该边界保留为显式诊断；没有通过全局忽略来制造“全绿”结果。
+
+VS Code 自动化的限制也保留为显式未完成项：桌面控制工具因本机 FUSE 不可用而无法点击开发宿主，浏览器控制又按安全策略禁止打开 `vscode://` 自定义协议。因此目前只证明了构建、开发宿主加载、manifest、启动参数和 URI 安全逻辑，没有把命令点击或源码跳转记为通过。
+
 ## 自动化测试结果
 
 ```text
-Test Files  13 passed (13)
-Tests      53 passed (53)
+Test Files  14 passed (14)
+Tests      56 passed (56)
 ```
 
 完整构建：
 
 ```text
 TypeScript protocol/core/cli/vscode build: passed
-Vite production build: 183 modules transformed
-Web main JS gzip: 137.97 kB
+Vite production build: 184 modules transformed
+Web main JS gzip: 138.10 kB
 ELK lazy layout JS gzip: 2.20 kB
 ELK worker asset: 1,595.33 kB
 Web CSS gzip: 5.62 kB
@@ -133,8 +162,8 @@ Production source map: disabled
 
 | 指标 | 结果 |
 | --- | ---: |
-| 初始扫描 | 157.37 ms |
-| 单文件更新 | 0.75 ms |
+| 初始扫描 | 172.74 ms |
+| 单文件更新 | 0.80 ms |
 | 更新时解析文件 | 1 |
 | 复用文件 | 249 |
 | 初始 snapshot | 393,277 bytes |
@@ -146,9 +175,10 @@ Production source map: disabled
 ## 尚未由本地环境证明的内容
 
 - GitHub-hosted Linux workflow 的远端结果（当前分支尚未推送）；
-- VS Code Extension Development Host 中的人工命令点击；本地已证明 manifest、构建、进程参数和 URI 安全逻辑；
+- VS Code Extension Development Host 中的人工命令点击和 `vscode://` 实际跳转；本地已证明开发宿主加载、manifest、构建、进程参数和 URI 安全逻辑；
 - 大于 5,000 文件仓库的首次扫描体验；
 - C++ 宏、复杂模板与预处理器语义；
+- TypeScript grammar 对 `export type *` 等有效新语法和复杂类型签名的覆盖；
 - 长时间运行时的 watcher/浏览器内存曲线；
 - 人类理解速度和叙事质量等产品指标。
 

@@ -8,12 +8,14 @@ import type {
 } from '@shishan/protocol';
 import { NarrativeGraph } from './NarrativeGraph.js';
 import { SourcePanel } from './SourcePanel.js';
+import { narrativeNodeLabel } from './graph-layout.js';
 import { readStaticData } from './static-data.js';
 import {
   applyProjectPatch,
   stateFromSnapshot,
   type ProjectState
 } from './store.js';
+import { updatePathSummary } from './update-summary.js';
 
 interface Selection {
   path: string;
@@ -369,7 +371,7 @@ export default function App() {
                         )
                           ? 'stale · '
                           : ''}
-                        {item.children.length} flows
+                        {narrativeNodeLabel(item)}
                       </small>
                     </button>
                   ))
@@ -391,9 +393,10 @@ export default function App() {
           <footer>
             <span>
               Last update{' '}
-              {project.metrics.lastUpdate.parsedPaths.length > 0
-                ? project.metrics.lastUpdate.parsedPaths.join(', ')
-                : 'reused cached files'}
+              {updatePathSummary(
+                project.metrics.lastUpdate.parsedPaths,
+                project.generation
+              )}
             </span>
             <strong>
               {project.metrics.lastUpdate.durationMs.toFixed(2)} ms

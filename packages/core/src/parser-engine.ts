@@ -12,6 +12,15 @@ interface CacheEntry {
   analysis: FileAnalysis;
 }
 
+const DEFAULT_TREE_SITTER_BUFFER_UNITS = 32 * 1024;
+
+function parserBufferSize(content: string): number {
+  // node-tree-sitter 0.21 chunks string input through a 32K UTF-16 callback
+  // buffer. Its multi-chunk path can fail with `Invalid argument`, so keep
+  // each supported source in one callback buffer.
+  return Math.max(DEFAULT_TREE_SITTER_BUFFER_UNITS, content.length + 1);
+}
+
 export interface ParseResult {
   analysis: FileAnalysis;
   parsed: boolean;
@@ -116,16 +125,17 @@ export class ParserEngine {
     const parser = this.#parser(language);
     let incremental = previous?.language === language;
     let tree: Parser.Tree;
+    const options = { bufferSize: parserBufferSize(content) };
     if (incremental && previous) {
       try {
         previous.tree.edit(calculateEdit(previous.content, content));
-        tree = parser.parse(content, previous.tree);
+        tree = parser.parse(content, previous.tree, options);
       } catch {
-        tree = parser.parse(content);
+        tree = parser.parse(content, undefined, options);
         incremental = false;
       }
     } else {
-      tree = parser.parse(content);
+      tree = parser.parse(content, undefined, options);
     }
 
     const analysis = analyzeTree({

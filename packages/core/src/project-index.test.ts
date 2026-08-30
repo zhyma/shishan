@@ -202,6 +202,33 @@ describe('ProjectIndex', () => {
     expect(snapshot.metrics.totalParseOperations).toBe(0);
   });
 
+  it('parses and incrementally updates sources beyond the native 32 KiB buffer', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'shishan-parser-buffer-'));
+    const path = join(root, 'large.ts');
+    const padding = '// ' + 'x'.repeat(40_000) + '\n';
+    await writeFile(path, padding + simpleTs(1));
+    const index = await ProjectIndex.create(root);
+    const initial = await index.initialize();
+
+    expect(Buffer.byteLength(padding + simpleTs(1))).toBeGreaterThan(32 * 1024);
+    expect(initial.files[0]).toMatchObject({
+      path: 'large.ts',
+      syntaxError: false
+    });
+    expect(initial.files[0]?.diagnostics.some((item) => item.code === 'SHISHAN003')).toBe(
+      false
+    );
+    expect(initial.files[0]?.functions[0]?.localId).toBe('read-value');
+
+    await writeFile(path, padding + simpleTs(2));
+    const patch = await index.updatePaths(['large.ts']);
+    expect(patch.upsertFiles[0]).toMatchObject({
+      path: 'large.ts',
+      parseMode: 'incremental',
+      syntaxError: false
+    });
+  });
+
   it('rejects source paths outside the project root', async () => {
     const index = await ProjectIndex.create(fixtureRoot);
     expect(index.sourcePath('../order.py')).toBeUndefined();
