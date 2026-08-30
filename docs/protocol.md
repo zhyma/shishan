@@ -1,14 +1,14 @@
-# ShiShan v1.1 协议规范
+# ShiShan v1.2 协议规范
 
 ## 1. 目标
 
-`shishan/v1.1` 把“代码事实”和“自然语言解释”分开：
+`shishan/v1.2` 把“代码事实”和“自然语言解释”分开：
 
 - Tree-sitter AST 决定函数、语句、分支、循环、嵌套和源码范围；
 - `@shishan` 注释提供目的、条件、输入、输出和实现理由；
 - 解析器将两者合成与语言无关的 IR。
 
-协议不允许注释自行声明一套脱离源码的任意拓扑。
+函数内部拓扑始终来自 AST，不允许注释自行声明一套脱离源码的控制流。项目级清单可以显式编排少量跨模块叙事关系，但它必须通过独立 Schema、图拓扑和源码符号绑定校验，且不冒充编译器级调用图。
 
 ## 2. 注释语法
 
@@ -92,7 +92,7 @@ const key = hash(normalized);
 - branch 的内部入口为 `true`，离开到下一 sibling 为 `false`；
 - loop 的内部入口为 `body`，离开到下一 sibling 为 `exit`。
 
-v1.1 表达的是可读叙事关系，不承诺完整编译器级 CFG。`call`、`error` 和 `async` 当前沿用 `next` 边；其语义由节点 kind 与字段表达，不虚构编译器无法证明的成功/失败控制流。
+v1.2 表达的是可读叙事关系，不承诺完整编译器级 CFG。`call`、`error` 和 `async` 当前沿用 `next` 边；其语义由节点 kind 与字段表达，不虚构编译器无法证明的成功/失败控制流。
 
 ## 5. ID 作用域
 
@@ -100,12 +100,55 @@ v1.1 表达的是可读叙事关系，不承诺完整编译器级 CFG。`call`�
 - step/branch/loop/call/error/async/detail ID 在所属函数内唯一；
 - IR 全局 ID 由标准化相对路径、function ID 和 local ID 组合，源码移动之外保持稳定。
 
-## 6. IR
+## 6. 项目级叙事清单
+
+`.shishan/project.json` 是与源码共同提交 Git 的项目整体叙事，Schema 版本为 `shishan/project-v1`。它用于回答“项目有哪些关键流程、请求或数据如何跨模块推进”，不要求把每个文件或函数都放进图中。
+
+```json
+{
+  "schemaVersion": "shishan/project-v1",
+  "title": "Request engine",
+  "summary": "Turn one request into a response.",
+  "entryFlow": "request-lifecycle",
+  "flows": [
+    {
+      "id": "request-lifecycle",
+      "title": "Request lifecycle",
+      "summary": "Follow the primary request path.",
+      "nodes": [
+        {
+          "id": "receive-request",
+          "kind": "entry",
+          "label": "Receive request",
+          "summary": "Accept the platform request.",
+          "source": { "path": "src/app.ts", "symbol": "fetch" }
+        }
+      ],
+      "edges": []
+    }
+  ]
+}
+```
+
+规则：
+
+- flow、node 和 edge ID 都使用小写连字符格式；`entryFlow` 必须存在；
+- node kind 为 `entry`、`module`、`process`、`decision`、`error`、`output` 或 `external`；
+- edge kind 为 `next`、`true`、`false`、`calls`、`error` 或 `data`；
+- edge 的 source/target 必须存在于同一 flow；每个 flow 的 node/edge ID 唯一；
+- source path 必须是项目内相对路径，不能绝对化、目录穿越或通过符号链接逃逸；
+- source symbol 可选；存在时解析器用当前 `FileAnalysis.symbols` 绑定精确范围和对应函数 narrative ID；
+- 文件最大 256 KiB；最多 32 条 flow、每条 100 个 node 和 300 条 edge；
+- 清单缺失时函数级能力照常工作，Web Overview 显示明确空状态。
+
+机器可读 Schema 位于 [packages/protocol/schema/shishan-project.schema.json](../packages/protocol/schema/shishan-project.schema.json)。
+
+## 7. IR
 
 顶层 payload 有两种：
 
-- `ProjectSnapshot`：首次加载使用，包含所有已索引文件；
-- `ProjectPatch`：在线更新使用，只包含 `upsertFiles`、`removedFiles`、新的聚合覆盖率和指标。
+- `ProjectSnapshot`：首次加载使用，包含项目叙事、项目诊断和所有已索引文件；
+- `ProjectPatch`：在线更新使用，只包含变更的文件；项目叙事发生变化或源码重绑定时使用 `projectNarrativeChanged` 和对应 payload。
 
 每个 `FileAnalysis` 包含：
 
@@ -117,7 +160,7 @@ v1.1 表达的是可读叙事关系，不承诺完整编译器级 CFG。`call`�
 
 机器可读 Schema 位于 [packages/protocol/schema/shishan-ir.schema.json](../packages/protocol/schema/shishan-ir.schema.json)。
 
-## 7. 诊断代码
+## 8. 诊断代码
 
 | 范围 | 含义 |
 | --- | --- |
@@ -127,10 +170,11 @@ v1.1 表达的是可读叙事关系，不承诺完整编译器级 CFG。`call`�
 | `SHISHAN301–306` | AST 绑定、范围、作用域或重复目标错误 |
 | `SHISHAN401` | 命名函数尚无 function narrative，默认 info |
 | `SHISHAN501` | 相对 Git 基线实现 token 已变化，但函数叙事指纹完全未变化 |
+| `SHISHAN601–606` | 项目清单读取/Schema、图拓扑、路径与源码符号绑定错误 |
 
-## 8. Git freshness
+## 9. Git freshness
 
-freshness 不改变 `shishan/v1.1` IR 拓扑，而是在 `FileAnalysis.diagnostics` 中增加维护性提示：
+freshness 不改变 `shishan/v1.2` IR 拓扑，而是在 `FileAnalysis.diagnostics` 中增加维护性提示：
 
 1. 启动时把 `--base`（默认 `HEAD`）解析并固定为 commit hash；
 2. 仅对 Git 报告为 changed 的当前文件读取 baseline 版本；
@@ -142,11 +186,12 @@ freshness 不改变 `shishan/v1.1` IR 拓扑，而是在 `FileAnalysis.diagnosti
 
 新增文件没有 baseline，不产生过期诊断。普通注释或纯格式变化不改变实现指纹。当前版本不跨 Git rename 匹配旧路径。
 
-## 9. 版本与兼容
+## 10. 版本与兼容
 
-- payload 必须携带 `protocolVersion: "shishan/v1.1"`；
-- v1.1 保留 v1 的全部注释语法与字段语义，并新增三种 flow kind 和三个可选字段；
-- 只接受精确 `shishan/v1` payload 的消费者需要升级后再读取 v1.1 payload；
+- payload 必须携带 `protocolVersion: "shishan/v1.2"`；
+- v1.2 保留 v1.1 的全部函数注释语法与字段语义，并在 snapshot/patch 中加入项目叙事；
+- `.shishan/project.json` 独立使用 `shishan/project-v1`，以后可在不改变源码注释语法时单独演进；
+- 只接受精确旧 payload 的消费者需要升级后再读取 v1.2 payload；
 - 破坏性语法或 IR 变化必须使用新协议版本；
 - grammar 升级必须通过跨语言 Golden IR 测试。
 

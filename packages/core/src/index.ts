@@ -4,3 +4,4 @@ export * from './freshness.js';
 export * from './language.js';
 export * from './parser-engine.js';
 export * from './project-index.js';
+export * from './project-narrative.js';

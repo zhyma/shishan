@@ -4,6 +4,11 @@ import { get } from 'node:http';
 import { isAbsolute, resolve } from 'node:path';
 import * as vscode from 'vscode';
 import { resolveExistingSourceTarget } from './source-target.js';
+import {
+  parseProjectManifest,
+  type ProjectManifestFlow,
+  type ProjectManifestNode
+} from './project-manifest.js';
 
 interface ManagedServer {
   root: string;
@@ -13,6 +18,139 @@ interface ManagedServer {
 
 const servers = new Map<string, ManagedServer>();
 let output: vscode.OutputChannel;
+const PROJECT_MANIFEST = '.shishan/project.json';
+const MAX_PROJECT_MANIFEST_BYTES = 256 * 1024;
+
+class ProjectTreeItem extends vscode.TreeItem {
+  constructor(
+    label: string,
+    collapsibleState: vscode.TreeItemCollapsibleState,
+    readonly flow?: ProjectManifestFlow,
+    readonly node?: ProjectManifestNode
+  ) {
+    super(label, collapsibleState);
+  }
+}
+
+const nodeIcons: Record<string, string> = {
+  entry: 'debug-start',
+  module: 'symbol-module',
+  process: 'gear',
+  decision: 'git-branch',
+  error: 'error',
+  output: 'sign-out',
+  external: 'cloud'
+};
+
+class ProjectNarrativeProvider
+  implements vscode.TreeDataProvider<ProjectTreeItem>, vscode.Disposable
+{
+  readonly #changes = new vscode.EventEmitter<ProjectTreeItem | undefined>();
+  readonly onDidChangeTreeData = this.#changes.event;
+
+  refresh(): void {
+    this.#changes.fire(undefined);
+  }
+
+  dispose(): void {
+    this.#changes.dispose();
+  }
+
+  getTreeItem(element: ProjectTreeItem): vscode.TreeItem {
+    return element;
+  }
+
+  async getChildren(element?: ProjectTreeItem): Promise<ProjectTreeItem[]> {
+    if (element?.flow) {
+      return element.flow.nodes.map((node) => {
+        const item = new ProjectTreeItem(
+          node.label,
+          vscode.TreeItemCollapsibleState.None,
+          undefined,
+          node
+        );
+        item.id = 'shishan-node:' + element.flow?.id + ':' + node.id;
+        item.description = node.source?.symbol ?? node.kind;
+        item.contextValue = node.source
+          ? 'shishanProjectNodeWithSource'
+          : 'shishanProjectNode';
+        item.iconPath = new vscode.ThemeIcon(nodeIcons[node.kind] ?? 'circle-outline');
+        item.tooltip = new vscode.MarkdownString(
+          '**' + node.label + '**\n\n' +
+            node.summary +
+            (node.source
+              ? '\n\n`' +
+                node.source.path +
+                (node.source.symbol ? ' · ' + node.source.symbol : '') +
+                '`'
+              : '')
+        );
+        if (node.source) {
+          item.command = {
+            command: 'shishan.openProjectSource',
+            title: 'Open Project Narrative Source',
+            arguments: [node]
+          };
+        }
+        return item;
+      });
+    }
+
+    const root = workspaceRoot();
+    if (!root) {
+      return [];
+    }
+    const uri = vscode.Uri.joinPath(vscode.Uri.file(root), PROJECT_MANIFEST);
+    let bytes: Uint8Array;
+    try {
+      bytes = await vscode.workspace.fs.readFile(uri);
+    } catch {
+      return [];
+    }
+    if (bytes.byteLength > MAX_PROJECT_MANIFEST_BYTES) {
+      return [this.errorItem('project.json exceeds the 256 KiB safety limit.')];
+    }
+    const result = parseProjectManifest(new TextDecoder().decode(bytes));
+    if (!result.manifest) {
+      return [this.errorItem(result.error ?? 'project.json could not be read.')];
+    }
+    return result.manifest.flows.map((flow) => {
+      const item = new ProjectTreeItem(
+        flow.title,
+        flow.id === result.manifest?.entryFlow
+          ? vscode.TreeItemCollapsibleState.Expanded
+          : vscode.TreeItemCollapsibleState.Collapsed,
+        flow
+      );
+      item.id = 'shishan-flow:' + flow.id;
+      item.description = flow.nodes.length + ' nodes';
+      item.contextValue = 'shishanProjectFlow';
+      item.iconPath = new vscode.ThemeIcon(
+        flow.id === result.manifest?.entryFlow ? 'type-hierarchy' : 'list-tree'
+      );
+      item.tooltip = new vscode.MarkdownString(
+        '**' + flow.title + '**\n\n' + flow.summary
+      );
+      return item;
+    });
+  }
+
+  private errorItem(message: string): ProjectTreeItem {
+    const item = new ProjectTreeItem(
+      'Invalid project narrative',
+      vscode.TreeItemCollapsibleState.None
+    );
+    item.description = 'Open Output for details';
+    item.iconPath = new vscode.ThemeIcon('error');
+    item.tooltip = message;
+    item.command = {
+      command: 'shishan.showProjectError',
+      title: 'Show Project Narrative Error',
+      arguments: [message]
+    };
+    return item;
+  }
+}
 
 function workspaceRoot(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -213,7 +351,10 @@ async function openNarrative(): Promise<void> {
   }
   try {
     const url = await startServer(context.root, context.cliPath);
-    await vscode.commands.executeCommand('simpleBrowser.show', url);
+    await vscode.commands.executeCommand(
+      'simpleBrowser.show',
+      url + '/?view=overview'
+    );
   } catch (error) {
     output.show(true);
     void vscode.window.showErrorMessage(
@@ -264,12 +405,90 @@ async function openSourceUri(uri: vscode.Uri): Promise<void> {
   );
 }
 
+function findSymbolRange(
+  symbols: readonly (vscode.DocumentSymbol | vscode.SymbolInformation)[],
+  name: string
+): vscode.Range | undefined {
+  for (const symbol of symbols) {
+    if (symbol.name === name) {
+      return 'location' in symbol ? symbol.location.range : symbol.selectionRange;
+    }
+    if (!('location' in symbol)) {
+      const nested = findSymbolRange(symbol.children, name);
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+  return undefined;
+}
+
+async function openProjectSource(node: ProjectManifestNode): Promise<void> {
+  const root = workspaceRoot();
+  if (!root || !node.source) {
+    return;
+  }
+  const query = new URLSearchParams({ path: node.source.path }).toString();
+  const target = await resolveExistingSourceTarget(root, query);
+  if (!target) {
+    void vscode.window.showErrorMessage(
+      'ShiShan rejected this project source because it is outside the workspace or no longer exists.'
+    );
+    return;
+  }
+  const document = await vscode.workspace.openTextDocument(target.path);
+  let range: vscode.Range | undefined;
+  if (node.source.symbol) {
+    const symbols = await vscode.commands.executeCommand<
+      Array<vscode.DocumentSymbol | vscode.SymbolInformation> | undefined
+    >('vscode.executeDocumentSymbolProvider', document.uri);
+    range = symbols
+      ? findSymbolRange(symbols, node.source.symbol)
+      : undefined;
+  }
+  const editor = await vscode.window.showTextDocument(document);
+  const position = range?.start ?? new vscode.Position(0, 0);
+  editor.selection = new vscode.Selection(position, position);
+  editor.revealRange(
+    range ?? new vscode.Range(position, position),
+    vscode.TextEditorRevealType.InCenterIfOutsideViewport
+  );
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   output = vscode.window.createOutputChannel('ShiShan');
+  const provider = new ProjectNarrativeProvider();
+  const watcher = vscode.workspace.createFileSystemWatcher(
+    '**/.shishan/project.json'
+  );
+  watcher.onDidCreate(() => provider.refresh());
+  watcher.onDidChange(() => provider.refresh());
+  watcher.onDidDelete(() => provider.refresh());
   context.subscriptions.push(
     output,
+    provider,
+    watcher,
+    vscode.window.createTreeView('shishan.projectNarrative', {
+      treeDataProvider: provider,
+      showCollapseAll: true
+    }),
     vscode.commands.registerCommand('shishan.openNarrative', openNarrative),
     vscode.commands.registerCommand('shishan.checkNarrative', checkNarrative),
+    vscode.commands.registerCommand('shishan.refreshProjectNarrative', () =>
+      provider.refresh()
+    ),
+    vscode.commands.registerCommand(
+      'shishan.openProjectSource',
+      openProjectSource
+    ),
+    vscode.commands.registerCommand(
+      'shishan.showProjectError',
+      (message: string) => {
+        output.appendLine('Project narrative: ' + message);
+        output.show(true);
+      }
+    ),
+    vscode.workspace.onDidChangeWorkspaceFolders(() => provider.refresh()),
     vscode.window.registerUriHandler({ handleUri: openSourceUri })
   );
 }

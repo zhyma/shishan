@@ -1,4 +1,5 @@
 import {
+  mkdir,
   mkdtemp,
   symlink,
   unlink,
@@ -6,7 +7,8 @@ import {
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { PROJECT_NARRATIVE_FILE } from '@shishan/core';
 import { validateProtocolPayload } from '@shishan/protocol';
 import { createShiShanServer } from './server.js';
 
@@ -18,6 +20,32 @@ const source = [
   '}',
   ''
 ].join('\n');
+
+function projectManifest(summary: string): string {
+  return JSON.stringify({
+    schemaVersion: 'shishan/project-v1',
+    title: 'Greeting lifecycle',
+    summary,
+    entryFlow: 'greeting',
+    flows: [
+      {
+        id: 'greeting',
+        title: 'Greeting lifecycle',
+        summary: 'Follow the greeting path.',
+        nodes: [
+          {
+            id: 'greet-user',
+            kind: 'entry',
+            label: 'Greet user',
+            summary: 'Return a greeting.',
+            source: { path: 'greet.ts', symbol: 'greet' }
+          }
+        ],
+        edges: []
+      }
+    ]
+  });
+}
 
 describe('ShiShan server', () => {
   it('serves a schema-valid snapshot and protected source endpoint', async () => {
@@ -83,6 +111,28 @@ describe('ShiShan server', () => {
     expect(patch.upsertFiles.map((file) => file.path)).toEqual(['a.ts']);
     expect(JSON.stringify(patch)).not.toContain('"path":"b.ts"');
     expect(patch.metrics.lastUpdate.reusedFileCount).toBe(1);
+    await server.close();
+  });
+
+  it('watches and publishes project-level narrative changes without source edits', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'shishan-server-project-'));
+    await writeFile(join(root, 'greet.ts'), source);
+    await mkdir(join(root, '.shishan'));
+    const server = await createShiShanServer({ root, watch: true });
+    await writeFile(
+      join(root, PROJECT_NARRATIVE_FILE),
+      projectManifest('Explain how greetings are returned.')
+    );
+
+    await vi.waitFor(
+      () => {
+        expect(server.index.snapshot().projectNarrative?.entryFlow).toBe(
+          'greeting'
+        );
+      },
+      { timeout: 3_000, interval: 50 }
+    );
+    expect(server.index.snapshot().projectDiagnostics).toEqual([]);
     await server.close();
   });
 

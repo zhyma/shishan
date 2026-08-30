@@ -1,4 +1,4 @@
-# Phase 0–3B 验证记录
+# Phase 0–3C 验证记录
 
 验证日期：2026-08-30
 本地环境：Linux x86_64、Node.js 24.18.0、npm 11.16.0
@@ -7,7 +7,7 @@
 
 | 验证项 | 证据 | 结果 |
 | --- | --- | --- |
-| 版本化协议 | `PROTOCOL_VERSION = shishan/v1.1` | 通过 |
+| 版本化协议 | `PROTOCOL_VERSION = shishan/v1.2` | 通过 |
 | JSON Schema | Draft 2020-12 snapshot/patch Schema + Ajv | 通过 |
 | 四语言同构 IR | Python、C++、TS、JS fixtures | 通过 |
 | JSX/TSX 方言 | 独立 JSX、TSX fixtures | 通过 |
@@ -108,6 +108,36 @@ Phase 3B 真实浏览器检查：
 - 97 节点 synthetic function 实际渲染 97 张卡片并完成 ELK Worker 布局；
 - advanced live、advanced static、97 节点 live 页面控制台均为 0 条日志。
 
+## Phase 3C：项目整体叙事与可安装 VS Code 入口
+
+| 验证项 | 证据 | 结果 |
+| --- | --- | --- |
+| 项目清单 Schema | `shishan-project.schema.json` + Ajv；字段、字符串和图规模有界 | 通过 |
+| 清单安全读取 | 256 KiB 上限；拒绝 symlink、绝对路径和 parent traversal | 通过 |
+| 图拓扑 | entry flow、flow/node/edge 唯一性和端点存在性测试 | 通过 |
+| AST 源码绑定 | `{path,symbol}` 绑定 `SourceRange` 和 `narrativeId`；缺失/歧义符号有诊断 | 通过 |
+| IR 兼容 | Snapshot/Patch 的项目叙事字段通过 Draft 2020-12 Schema | 通过 |
+| manifest-only 增量 | watcher 观察 `.shishan/project.json`，只发布 project patch，不 upsert 源码 | 通过 |
+| Web 默认 Overview | 有 manifest 时首屏选择 entry flow，不再默认显示文件列表 | 通过 |
+| 项目图交互 | Request lifecycle 与 Runtime architecture 可切换，源码和 Function story 下钻通过 | 通过 |
+| 响应式项目图 | 宽屏 LR 总览；760 px 以下切为 TB、90% 缩放并把入口置于首屏；顶部保留层级与流程切换 | 通过 |
+| 中型仓库可读性 | Functions 只列 6 个已有叙事文件；info 归入 coverage，诊断面板保留 8 个 warning/error | 通过 |
+| VSIX 打包/安装 | `shishan-vscode-0.2.0.vsix` 12 个文件，`code --install-extension --force` 成功 | 通过 |
+| Activity Bar | 安装 manifest 包含 `viewsContainers.activitybar` 和 `shishan.projectNarrative` TreeView | 通过 |
+| VS Code 启动 | VS Code 1.135.0 独立 profile 的 Hono workspace 因 `workspaceContains:.shishan/project.json` 自动激活 | 通过 |
+| Authoring Skill | 项目 flow 维护规则加入仓库 Skill；`quick_validate.py` | 通过 |
+| 自举验证 | 仓库根清单描述代码叙事管道与 Overview 交付链；0 project diagnostics | 通过 |
+
+真实浏览器检查：
+
+- 首屏显示 Hono `Request lifecycle` 的 11 张项目卡片和 14 条语义边；
+- 切换 `Runtime architecture` 后显示 6 个模块/外部系统/输出节点；
+- 点击 `fetch` 在 Overview 右侧打开 `src/hono-base.ts` 精确范围；
+- 点击 `Function story` 切到 `fetch-entry` 的 Function → Call 局部图；
+- Functions 页从 357 个文件清单收敛为 6 个已有叙事文件；
+- 顶部 diagnostics 从 1,787 条（绝大多数为 info）收敛为 8 条真实 grammar warning。
+- 618 px Codex 侧栏中项目图从入口开始纵向展示，卡片文字可读且不再被全图 `fitView` 过度缩小；Overview → Functions → Overview 往返和两条 flow 的下拉切换均通过。
+
 ## 真实中型仓库：Hono
 
 测试对象：[Hono `e2740d5`](https://github.com/honojs/hono/tree/e2740d5a1bd0b4254e517e3af8b60789284bc7bd)。测试使用 `/tmp` 中的 shallow clone，没有修改或推送 Hono 上游。
@@ -115,46 +145,48 @@ Phase 3B 真实浏览器检查：
 | 验证项 | 证据 | 结果 |
 | --- | --- | --- |
 | 仓库规模 | 456 个文件；357 个受支持源码文件进入 ShiShan 索引 | 通过 |
-| 真实注释 | 3 个模块中的 5 个函数，覆盖 branch、loop、call、async、detail | 通过 |
+| 真实注释 | 6 个源码文件中的 12 个函数，覆盖 branch、loop、call、error、async、detail | 通过 |
 | 局部严格检查 | `src/client`、`src/middleware/etag`、`src/middleware/language` 均为 0 errors、0 warnings | 通过 |
 | 大文件解析 | 修复前 16 个大于 32 KiB 的文件产生 `SHISHAN003 Invalid argument`；修复后 357/357 文件均进入 parser | 通过 |
 | 函数恢复 | 修复前 1,281 个函数；修复后 1,791 个函数 | 通过 |
-| 首次扫描 | 8.83 s；峰值 RSS 261,184 KiB（约 255 MiB） | 通过，继续观察 |
+| 首次扫描 | 当前约 8.2 s；既有峰值 RSS 261,184 KiB（约 255 MiB） | 通过，继续观察 |
 | live 更新 | 修改一处叙事后 generation 1 → 2，只解析 `src/middleware/etag/digest.ts`，10.10 ms | 通过 |
 | 中型流程图 | 15 个真实节点使用 Dagre；节点计数、默认缩放、源码行号和 detail 展开正确 | 通过 |
+| 项目整体流程 | request lifecycle 11 节点 + runtime architecture 6 节点；0 project diagnostics | 通过 |
 | static 默认隔离 | 导出约 3.2 MiB；0 source；0 个 `Open in VS Code`；无 API 依赖 | 通过 |
 | 浏览器日志 | live 与 static 的 console warning/error 均为 0 | 通过 |
-| VS Code 开发宿主 | VS Code 1.130.0 renderer log 明确加载 `apps/vscode` 开发扩展 | 部分通过 |
+| VS Code 安装宿主 | VSIX 安装为 `zhyma.shishan-vscode@0.2.0`；VS Code 1.135.0 日志确认启动激活 | 通过 |
 
 试用中发现并修复：
 
 - Node Tree-sitter 0.21 的默认 32 KiB string callback buffer 会让长源码在多 chunk 路径抛出 `Invalid argument`；parser 现在按源码长度设置 buffer，并覆盖首次与增量解析回归测试；
 - 函数列表原先只显示顶层 children 数量，现改为真实可见节点总数；
 - 15 节点图原先 `fitView` 过度缩小，现为 20 节点以内设置可读的初始最小缩放；
+- 项目 Overview 原先在 618 px 嵌入窗口把 11 节点 LR 图缩到约 24%，现窄屏改用 TB 并从入口以 90% 缩放阅读；
 - 首次加载 357 条完整路径会占满底部状态区，现压缩为 `initial snapshot · 357 files`，多文件增量也会摘要显示。
 
-完整 Hono 扫描仍有 7 个 `SHISHAN001`。检查对应源码后，它们是当前 `tree-sitter-typescript` 对有效现代语法或复杂类型签名的 grammar error node，例如 `export type *`，不是 Hono 语法错误。该边界保留为显式诊断；没有通过全局忽略来制造“全绿”结果。
+完整 Hono 扫描仍有 8 个 `SHISHAN001`。检查对应源码后，它们是当前 `tree-sitter-typescript` 对有效现代语法或复杂类型签名的 grammar error node，例如 `export type *`，不是 Hono 语法错误。该边界保留为显式诊断；没有通过全局忽略来制造“全绿”结果。
 
-VS Code 自动化的限制也保留为显式未完成项：桌面控制工具因本机 FUSE 不可用而无法点击开发宿主，浏览器控制又按安全策略禁止打开 `vscode://` 自定义协议。因此目前只证明了构建、开发宿主加载、manifest、启动参数和 URI 安全逻辑，没有把命令点击或源码跳转记为通过。
+VS Code 的安装、Activity Bar manifest、启动激活、TreeView parser、启动参数和 URI 安全逻辑已证明。由于已按用户要求卸载 Orca 桌面控制组件，本轮没有自动点击 VS Code 标题栏命令，也没有自动触发 `vscode://`；这两项仍保留为人工交互复核。
 
 ## 自动化测试结果
 
-[PR #1 的 GitHub Actions run #2](https://github.com/zhyma/shishan/actions/runs/33340218912) 已完成；`Linux · Node 24` 与 `Incremental invariants` 两个 job 均为 success。
+本地收尾结果如下；远程最新提交的 `Linux · Node 24` 与 `Incremental invariants` 状态以 [PR #1](https://github.com/zhyma/shishan/pull/1) 和 [CI workflow](https://github.com/zhyma/shishan/actions/workflows/ci.yml) 为准。
 
 ```text
-Test Files  14 passed (14)
-Tests      56 passed (56)
+Test Files  17 passed (17)
+Tests      66 passed (66)
 ```
 
 完整构建：
 
 ```text
 TypeScript protocol/core/cli/vscode build: passed
-Vite production build: 184 modules transformed
-Web main JS gzip: 138.10 kB
+Vite production build: 186 modules transformed
+Web main JS gzip: 139.91 kB
 ELK lazy layout JS gzip: 2.20 kB
 ELK worker asset: 1,595.33 kB
-Web CSS gzip: 5.62 kB
+Web CSS gzip: 6.66 kB
 Production source map: disabled
 ```
 
@@ -176,7 +208,7 @@ Production source map: disabled
 
 ## 尚未由本地环境证明的内容
 
-- VS Code Extension Development Host 中的人工命令点击和 `vscode://` 实际跳转；本地已证明开发宿主加载、manifest、构建、进程参数和 URI 安全逻辑；
+- VS Code 安装窗口中的 Web/check/refresh 人工点击和 `vscode://` 实际跳转；本地已证明 VSIX 安装、Activity Bar contribution、启动激活、构建、进程参数和 URI 安全逻辑；
 - 大于 5,000 文件仓库的首次扫描体验；
 - C++ 宏、复杂模板与预处理器语义；
 - TypeScript grammar 对 `export type *` 等有效新语法和复杂类型签名的覆盖；

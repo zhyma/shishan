@@ -2,9 +2,9 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 文档状态 | v0.4，Phase 0–3B 已实现，Hono 中型仓库首轮试用已完成 |
+| 文档状态 | v0.5，Phase 0–3C 已实现，Hono 项目级叙事与可安装 VS Code 扩展已验收 |
 | 日期 | 2026-08-30 |
-| 产品阶段 | Linux 优先的四语言本地 MVP 与叙事可信度验证 |
+| 产品阶段 | Linux 优先的四语言本地 MVP、项目整体叙事与叙事可信度验证 |
 | 第一阶段语言 | Python、C++、TypeScript、JavaScript |
 | 推荐形态 | 本地优先的 CLI + Web 应用，编辑器集成为可选适配层 |
 
@@ -26,7 +26,7 @@ ShiShan 的目标是建立一层随代码共同维护的“程序叙事层”：
 2. AI 在创建或修改代码时，按照版本化协议写入结构化自然语言解释；
 3. 本地解析器用语法树确认真实的函数、分支、循环和源码范围；
 4. ShiShan 将语法结构与自然语言语义合并成语言无关的叙事图；
-5. 用户通过独立网页逐层浏览“项目 → 文件 → 函数 → 内部流程”，并随时跳回源码。
+5. 用户通过独立网页先看“项目整体流程”，再按需下钻到“函数 → 内部流程 → 源码”。
 
 一句话定位：
 
@@ -121,7 +121,7 @@ AI 生成代码后，人类通常面对以下困难：
 
 ### 4.1 MVP 目标
 
-1. 定义 `shishan/v1.1` 跨语言叙事协议；
+1. 定义 `shishan/v1.2` 跨语言叙事协议和独立版本化的 `shishan/project-v1` 项目叙事清单；
 2. 支持 Python、C++、TypeScript 和 JavaScript；
 3. MVP 先支持函数、步骤、分支和循环，Phase 3B 扩展调用、错误和异步节点，并保留精确绑定局部源码的 `detail` 实现细节注解；
 4. 提供 AI Authoring Skill，指导 AI 生成和维护合法叙事；
@@ -131,12 +131,13 @@ AI 生成代码后，人类通常面对以下困难：
 8. 在文件变化后增量刷新叙事图；
 9. 用 Git 基线识别“实现变化但叙事未同步”的疑似过期函数；
 10. 导出不依赖 ShiShan API 的只读静态站点。
+11. 默认首屏显示少量命名的项目级流程，并把节点绑定到真实源码符号和函数叙事。
 
 ### 4.2 后续目标
 
 - 调用、返回、异常、并发和异步的高级叙事节点；
-- 跨文件和跨模块调用关系；
-- VS Code 和其他编辑器集成；
+- 自动推断的完整跨文件调用关系；
+- JetBrains 等其他编辑器集成；
 - 对既有代码进行批量 AI 注释；
 - 团队评审、评论和叙事质量评分。
 
@@ -234,7 +235,7 @@ MVP 支持人或 AI 逐步补充叙事，但不要求一次性覆盖整个仓库
 MVP 推荐“源码内嵌为规范来源，独立 IR 为生成产物”：
 
 - 完整自然语言解释写在源码注释中；
-- `shishan init` 创建项目级配置，由配置声明 `protocolVersion: "shishan/v1.1"`；
+- `shishan init` 创建项目级配置，由配置声明 `protocolVersion: "shishan/v1.2"`；
 - `.shishan/cache` 保存可丢弃的本地解析缓存；
 - `shishan export` 可生成 JSON IR，但该文件不是人工编辑的规范来源；
 - 暂不把详细叙事拆到 sidecar 文件，避免源码与解释失去位置关联。
@@ -392,7 +393,7 @@ y = max(0, min(height - 1, round(y)))
 
 ```typescript
 interface NarrativeProject {
-  protocolVersion: "shishan/v1.1";
+  protocolVersion: "shishan/v1.2";
   root: string;
   files: NarrativeFile[];
   diagnostics: Diagnostic[];
@@ -490,7 +491,7 @@ Skill 必须指导 AI：
 
 | 编号 | 需求 | 优先级 |
 | --- | --- | --- |
-| FR-001 | 识别 `shishan/v1.1` 注释块 | P0 |
+| FR-001 | 识别 `shishan/v1.2` 注释块 | P0 |
 | FR-002 | 将注释绑定到真实 AST 节点 | P0 |
 | FR-003 | 支持四种目标语言 | P0 |
 | FR-004 | 输出统一 JSON IR | P0 |
@@ -1044,34 +1045,56 @@ React Flow 核心是 MIT 开源项目，适合自定义叙事节点、循环容�
 - 批量流程证明 draft 不写、dry-run 不写、approved 可写、源码过期不产生部分写入、注入和手改插入位置会被拒绝；
 - Linux Node 24 下全量测试、类型检查、生产构建、strict check、增量 benchmark 与 live/static 浏览器回归通过。
 
-多 AI 平台 Skill，以及 macOS/Windows 兼容性，按当前产品决策明确延期，不属于 Phase 3B 验收范围。
+### Phase 3C：项目整体叙事与可安装编辑器入口（已实现，Linux）
 
-## 22. Phase 3B 已采用的产品决策
+交付物：
+
+- 协议升级到 `shishan/v1.2`；新增受 256 KiB、32 flow、100 node/flow 和 300 edge/flow 上限保护的 `.shishan/project.json`；
+- Core 校验 manifest Schema、ID/端点拓扑、项目相对路径和源码符号，并把项目节点绑定到 AST range 与函数 narrative ID；
+- Snapshot/Patch 加入 `projectNarrative`、`projectDiagnostics` 和 `projectNarrativeChanged`，watcher 能单独发布 manifest 变化，源码符号变化时自动重绑；
+- Web 默认打开 `entryFlow`；宽屏使用整体 LR 流程图，窄屏切换为从入口开始的可读 TB 路径，并在顶部保留 Overview/Functions 与命名流程选择；项目节点可先打开源码，再进入函数叙事；Functions 作为第二层，只默认列出已有叙事的文件；
+- 可复现的 Hono request lifecycle（11 节点）和 runtime architecture（6 节点）中型仓库验收；
+- VS Code 0.2.0 VSIX：独立 Activity Bar、Project Narrative TreeView、manifest file watcher、流程节点源码打开、Web/refresh/check 标题栏操作；
+- Authoring Skill 同步项目级叙事维护规则。
+
+退出条件：
+
+- 缺失 manifest 时函数能力照常工作；非法 Schema、拓扑、路径和符号分别产生明确诊断；
+- manifest-only watcher 更新不解析源码，source update 可更新项目绑定；Snapshot/Patch 继续通过统一 JSON Schema；
+- live/static Web 首屏均能展示整体流程，项目节点源码定位与函数下钻在真实浏览器通过；
+- 760 px 以下的嵌入窗口不把整图缩成不可读缩略图，入口和后续节点可直接阅读，进入函数后仍能返回 Overview 并切换命名流程；
+- VSIX 可打包并由 `code --install-extension` 安装；安装后的 Hono 工作区因 `workspaceContains:.shishan/project.json` 自动激活且无 ShiShan extension-host error；
+- Linux Node 24 下全量测试、typecheck、生产构建、fixture strict check 和 Hono 项目清单验证通过。
+
+多 AI 平台 Skill，以及 macOS/Windows 兼容性，按当前产品决策明确延期，不属于 Phase 3C 验收范围。
+
+## 22. Phase 3B–3C 已采用的产品决策
 
 本阶段按以下决策实施：
 
-1. 行式注释语法保持不变；新增节点以 `shishan/v1.1` 明确版本化，不在 `step` 中暗藏语义；
-2. Web 保持“项目/函数大纲 + 当前函数流程图”，大图只升级布局引擎，不改变信息架构；
+1. 行式注释语法保持不变；语义节点在 v1.1 引入，项目级 payload 以 `shishan/v1.2` 明确版本化；
+2. Web 首屏是人工维护的命名项目流程，不是文件清单或自动生成的全量依赖图；函数图作为第二层；
 3. 既有仓库只生成待审核候选，不让模型或工具自动写入猜测的业务意图；
 4. 静态分享继续默认隐藏源码；VS Code 跳转只存在于 live 模式，并限制在当前 workspace；
 5. 当前仅维护 Codex `shishan-author` Skill；多 AI 平台 Skill 暂不评估；
 6. 当前交付与 CI 仅面向 Linux；macOS 与 Windows 暂不纳入兼容承诺；
 7. 项目继续采用 MIT；ELK.js 以 EPL-2.0 OR GPL-3.0-or-later 作为独立运行时依赖并保留许可证汇总。
+8. `.shishan/project.json` 进入 Git；`.shishan` 中 cache、site 和 annotation plan 等生成物继续忽略。
 
 ## 23. 推荐的下一步行动
 
-Hono `e2740d5` 的第一轮中型仓库试用已经完成：357 个受支持源码文件、1,791 个函数，live/static 浏览器链路通过；试用发现并修复了大于 32 KiB 源码解析失败、节点计数不准确、中型图初始缩放过小和更新摘要过长的问题。
+Hono `e2740d5` 的项目级中型仓库试用已经完成：357 个受支持源码文件、1,791 个函数、12 个叙事函数、2 条项目流程；宽屏整体流程、窄屏入口阅读、源码下钻和函数图浏览器链路通过。ShiShan 自身也用根 `.shishan/project.json` 描述两条主流程并通过严格校验。VSIX 已安装，本机 VS Code 1.135.0 的独立验收工作区确认扩展自动激活。
 
 仍未完成的里程碑按优先级为：
 
-1. 在可操作桌面的 Linux 环境人工点击 VS Code 两个命令，并验证 Web `vscode://` 跳回源码；
-2. 跟踪 `tree-sitter-typescript` 对 `export type *` 等现代语法的支持，为当前 7 个真实 grammar gap 增加最小 fixture，并在上游发布后评估升级；
+1. 人工点击 VS Code 的 Web/check/refresh 操作，并验证 Web `vscode://` 实际返回编辑器；安装、Activity Bar contribution、启动激活和路径安全已自动证明；
+2. 跟踪 `tree-sitter-typescript` 对 `export type *` 等现代语法的支持，为当前 8 个真实 grammar gap 增加最小 fixture，并在上游发布后评估升级；
 3. 用 5–10 个 Codex 编码任务评估 Skill 的同步率、`SHISHAN501` 命中率与噪声；
 4. 选择大于 5,000 文件的仓库，验证首次扫描、长期 watcher/浏览器内存和增量曲线；
-5. 根据真实使用结果决定是否冻结 `shishan/v1.1`，以及 600 节点截断是否演进为按层级折叠或服务端分页；
+5. 根据真实使用结果决定是否冻结 `shishan/v1.2` / `shishan/project-v1`，以及 600 节点截断是否演进为按层级折叠或服务端分页；
 6. 多 AI 平台 Skill、macOS 与 Windows 兼容性保持延期，除非产品范围重新调整。
 
-发布状态：分支 `codex/shishan-phase-3b` 已推送，[PR #1](https://github.com/zhyma/shishan/pull/1) 已创建，[Linux CI run #2](https://github.com/zhyma/shishan/actions/runs/33340218912) 的两个 job 均通过。
+发布状态：分支 `codex/shishan-phase-3b` 与 [PR #1](https://github.com/zhyma/shishan/pull/1) 持续更新；以最新提交对应的 GitHub Actions 为准。
 
 ## 24. 技术调研来源
 

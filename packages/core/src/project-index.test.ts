@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +9,7 @@ import {
   type NarrativeNode
 } from '@shishan/protocol';
 import { MAX_SOURCE_BYTES } from './config.js';
+import { PROJECT_NARRATIVE_FILE } from './project-narrative.js';
 import { ProjectIndex } from './project-index.js';
 
 const fixtureRoot = fileURLToPath(
@@ -155,6 +156,59 @@ describe('ProjectIndex', () => {
       narratedFunctions: 6,
       percent: 100
     });
+    expect(snapshot.projectNarrative).toMatchObject({
+      title: 'Polyglot order narrative',
+      entryFlow: 'order-calculation'
+    });
+    expect(snapshot.projectNarrative?.flows).toHaveLength(2);
+    expect(snapshot.projectDiagnostics).toEqual([]);
+  });
+
+  it('emits manifest-only patches and preserves source bindings', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'shishan-project-patch-'));
+    await mkdir(join(root, '.shishan'));
+    await writeFile(join(root, 'value.ts'), simpleTs(1));
+    const project = (summary: string): string =>
+      JSON.stringify({
+        schemaVersion: 'shishan/project-v1',
+        title: 'Value lifecycle',
+        summary,
+        entryFlow: 'value-lifecycle',
+        flows: [
+          {
+            id: 'value-lifecycle',
+            title: 'Value lifecycle',
+            summary: 'Follow one value.',
+            nodes: [
+              {
+                id: 'read-value',
+                kind: 'entry',
+                label: 'Read value',
+                summary: 'Read the configured value.',
+                source: { path: 'value.ts', symbol: 'readValue' }
+              }
+            ],
+            edges: []
+          }
+        ]
+      });
+    await writeFile(join(root, PROJECT_NARRATIVE_FILE), project('Initial story.'));
+    const index = await ProjectIndex.create(root);
+    const initial = await index.initialize();
+
+    expect(initial.projectNarrative?.flows[0]?.nodes[0]?.source).toMatchObject({
+      path: 'value.ts',
+      symbol: 'readValue',
+      narrativeId: 'value.ts#read-value'
+    });
+    await writeFile(join(root, PROJECT_NARRATIVE_FILE), project('Updated story.'));
+    const patch = await index.updatePaths([PROJECT_NARRATIVE_FILE]);
+
+    expect(patch.projectNarrativeChanged).toBe(true);
+    expect(patch.projectNarrative?.summary).toBe('Updated story.');
+    expect(patch.upsertFiles).toEqual([]);
+    expect(patch.generation).toBe(initial.generation + 1);
+    expect(validateProtocolPayload(patch)).toEqual({ valid: true, errors: [] });
   });
 
   it('updates only a changed file and reuses untouched file objects', async () => {

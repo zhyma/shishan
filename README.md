@@ -2,7 +2,7 @@
 
 ShiShan 是一套“代码叙事协议 + 本地解析器 + Web 可视化工具”。AI 在写代码时留下结构化自然语言说明，ShiShan 用真实 AST 校验这些说明绑定到哪个函数、分支、循环或具体语句，再把结果展示成可逐层展开的流程图。
 
-当前分支已经实现 PRD 的 Phase 0–3B 技术基线，支持：
+当前分支已经实现 PRD 的 Phase 0–3C 技术基线，支持：
 
 - Python；
 - C++；
@@ -15,7 +15,10 @@ ShiShan 是一套“代码叙事协议 + 本地解析器 + Web 可视化工具�
 - 基于固定 Git revision 的疑似过期叙事检测；
 - 不依赖 ShiShan API 的只读静态站点导出；
 - 80 节点以上动态启用 ELK Worker、600 节点上限和超时回退的大图布局；
-- Linux VS Code 薄扩展，可启动 Web、执行严格检查并从 Web 跳回源码；
+- `.shishan/project.json` 项目级叙事清单：命名整体流程、显式语义边并绑定真实源码符号；
+- 默认展示项目整体流程图，函数/文件视图作为可下钻的第二层；
+- 项目图在宽屏按左右总览，在窄屏按上下阅读并从入口保持可读缩放，同时保留 Overview/Functions 与命名流程切换；
+- 可打包安装的 Linux VS Code 扩展，提供 Activity Bar 项目叙事树、Web 启动、严格检查和源码跳转；
 - 既有代码的人工审核批量注释计划，默认 dry-run；
 - 可独立安装的 ShiShan Authoring Skill。
 
@@ -68,6 +71,8 @@ def calculate_order(prices):
 
 完整规范见 [docs/protocol.md](docs/protocol.md)，四语言可运行样例见 [fixtures/polyglot](fixtures/polyglot)。
 
+项目整体叙事放在可提交 Git 的 `.shishan/project.json`。它只描述少量、人需要理解的命名流程，不自动把所有文件拼成不可读的依赖图；节点可用 `{ "path": "...", "symbol": "..." }` 绑定源码，解析器会验证路径、符号和拓扑。ShiShan 仓库本身已经用 [根项目清单](.shishan/project.json) 描述代码叙事管道和 Overview 交付链路；更小的四语言示例见 [fixtures/polyglot/.shishan/project.json](fixtures/polyglot/.shishan/project.json)。
+
 ## CLI
 
 | 命令 | 作用 |
@@ -108,17 +113,28 @@ Skill 会要求代理：
 - 只在有意义的语义边界加节点；
 - 代码行为变化时同步更新说明；
 - 重新计算 `detail` 的覆盖语句数；
+- 当架构、入口或跨函数流程改变时同步检查 `.shishan/project.json`；
 - 完成后运行 `shishan check`。
 
 ## VS Code 薄扩展（Linux）
 
-扩展位于 [apps/vscode](apps/vscode)。构建整个项目后，在 VS Code Extension Development Host 中加载该目录，可执行：
+扩展位于 [apps/vscode](apps/vscode)。它贡献独立的 ShiShan Activity Bar，其中的 `Project Narrative` 树直接读取 `.shishan/project.json`，列出命名流程和节点；点击带源码的节点会打开工作区内对应符号。
 
-- `ShiShan: Open Code Narrative`：复用或启动 loopback Web 服务，并在 Simple Browser 打开；
+构建、打包并安装：
+
+```bash
+npm run package -w shishan-vscode
+code --install-extension apps/vscode/shishan-vscode-0.2.0.vsix --force
+```
+
+安装后还可执行：
+
+- `ShiShan: Open Project Narrative`：复用或启动 loopback Web 服务，并默认打开整体 Overview；
 - `ShiShan: Check Narrative Freshness`：运行 `check --strict --base HEAD`；
+- `ShiShan: Refresh Project Narrative`：重新读取项目叙事树；
 - Web 源码面板的 `Open in VS Code`：通过扩展 URI Handler 回到对应文件和位置。
 
-URI Handler 会拒绝绝对路径、目录穿越和不属于当前 workspace 的文件。扩展不包含独立解析器，只作为 CLI/Web 的薄适配层。
+URI Handler 会拒绝绝对路径、目录穿越和不属于当前 workspace 的文件。扩展不包含独立解析器，只作为 CLI/Web 的薄适配层；在非 ShiShan 源码仓库中使用 Web 命令时，需要把 `shishan.cliPath` 指向已构建的 `apps/cli/dist/main.js`。
 
 ## 架构
 
@@ -126,9 +142,10 @@ URI Handler 会拒绝绝对路径、目录穿越和不属于当前 workspace 的
 flowchart LR
   A["AI / developer + Authoring Skill"] --> B["Annotated source"]
   B --> C["Tree-sitter adapters"]
-  C --> D["shishan/v1.1 IR + JSON Schema"]
+  P[".shishan/project.json"] --> D["shishan/v1.2 IR + JSON Schema"]
+  C --> D
   D --> E["CLI / local Fastify server"]
-  E -->|"initial snapshot"| F["Web project Map"]
+  E -->|"initial snapshot"| F["Web Overall Narrative"]
   G["Chokidar changed paths"] --> H["ProjectIndex cache"]
   H -->|"Tree.edit + one-file parse"| D
   E -->|"SSE ProjectPatch"| F
@@ -159,7 +176,7 @@ flowchart LR
 2. 未变化的内容哈希直接跳过；
 3. 同语言文件使用上一棵 Tree-sitter tree 和最小文本 edit 做增量 parse；
 4. 项目索引只替换该文件对象，并用加减法更新覆盖率累计值；
-5. 服务只发送 `upsertFiles` 和 `removedFiles`；
+5. 服务只发送变更文件；项目叙事变化则单独发送 `projectNarrativeChanged`；
 6. 浏览器 Map 只替换补丁中的文件，未变化文件保持对象身份。
 
 开启 freshness 时，启动阶段只读取一次 Git changed-path 列表；每个 watcher 批次只查询批次中的路径。只有确实相对基线发生变化的文件才读取并缓存一份 baseline AST，不会为每次保存重建整个项目。
@@ -172,22 +189,22 @@ npm run benchmark:incremental -- --files=250
 
 ## 真实中型仓库试用
 
-2026-08-30 使用 [Hono `e2740d5`](https://github.com/honojs/hono/tree/e2740d5a1bd0b4254e517e3af8b60789284bc7bd) 做了第一轮中型 TypeScript 仓库验收。测试只修改 `/tmp` 中的浅克隆，没有向 Hono 上游写入内容；我们在 3 个代表性模块中人工添加了 5 个函数叙事，用来验证真实项目中的分支、循环、递归调用、异步等待和语句级 `detail`。
+2026-08-30 使用 [Hono `e2740d5`](https://github.com/honojs/hono/tree/e2740d5a1bd0b4254e517e3af8b60789284bc7bd) 做了中型 TypeScript 仓库验收。测试只修改 `/tmp` 中的浅克隆，没有向 Hono 上游写入内容；当前在 6 个代表性源码文件中保留 12 个函数叙事，并新增 2 条项目级流程：11 节点的 Request lifecycle 和 6 节点的 Runtime architecture。
 
 | 项目 | 本机结果 |
 | --- | ---: |
 | 仓库规模 | 456 个文件；ShiShan 索引 357 个受支持源码文件 |
-| 索引结果 | 1,791 个函数；5 个函数带叙事 |
-| 首次扫描 | 8.83 秒；峰值 RSS 约 255 MiB |
+| 索引结果 | 1,791 个函数；12 个函数带叙事；2 条项目流程 |
+| 首次扫描 | 约 8.2 秒；峰值 RSS 约 255 MiB |
 | live 单文件更新 | 只重算 `src/middleware/etag/digest.ts`；10.10 ms |
 | 默认静态导出 | 约 3.2 MiB；0 份源码；0 个 VS Code 跳转入口 |
 | 浏览器控制台 | live 与 static 均为 0 条 warning/error |
 
-这次试用直接暴露并推动了三项修复：大于 32 KiB 的源码不再触发 Node Tree-sitter `Invalid argument`；函数列表改为显示实际嵌套节点数；中型图的初始缩放和大项目更新摘要变得可读。修复后额外恢复了 16 个此前失败的文件和 510 个函数。
+这次试用直接推动了：长源码 parser buffer 修复、真实嵌套节点计数、项目整体流程图、函数列表只显示已有叙事文件、把非行动型 info 从诊断面板收敛到覆盖率指标，以及窄窗口从入口纵向阅读而不把全图缩成不可读缩略图。项目节点已在真实浏览器中验证源码定位和函数叙事下钻。
 
-完整仓库仍有 7 个 `SHISHAN001`，来自当前 TypeScript grammar 尚未覆盖的有效新语法或复杂类型签名，例如 `export type *`。这属于已知解析器边界，不应被误报成 Hono 源码错误。所选 3 个注释模块的 strict check 均为 0 errors、0 warnings。
+完整仓库仍有 8 个 `SHISHAN001`，来自当前 TypeScript grammar 尚未覆盖的有效新语法或复杂类型签名，例如 `export type *`。这属于已知解析器边界，不应被误报成 Hono 源码错误。新注释的 Hono 核心请求链文件均为 0 个 annotation warning/error，项目清单也为 0 diagnostics。
 
-VS Code 1.130.0 的 Extension Development Host 日志已确认加载 [apps/vscode](apps/vscode)。扩展构建、manifest、进程参数与 URI 路径隔离已有自动化验证；实际命令点击和 `vscode://` 跳转仍需在桌面控制可用的 Linux 环境做一次人工复核。
+本机 VS Code 1.135.0 已安装 `zhyma.shishan-vscode@0.2.0`。独立干净配置的 Hono 工作区日志确认它因 `workspaceContains:.shishan/project.json` 自动激活；已验证 VSIX 内容、Activity Bar contribution、项目树 manifest 解析和启动参数。实际点击 Web 命令及 `vscode://` 返回编辑器仍保留为人工交互复核项。
 
 ## 测试与构建
 
@@ -198,7 +215,7 @@ npm run typecheck
 python3 /path/to/skill-creator/scripts/quick_validate.py skills/shishan-author
 ```
 
-测试覆盖协议、Schema、四语言 Golden IR、增量对象复用、Git freshness、CLI 管道输出、静态导出、资源上限、路径隔离、服务补丁和 Web 状态合并。GitHub Actions 当前只在 Linux Node 24 环境运行测试、类型检查和构建；[PR #1 的 CI run #2](https://github.com/zhyma/shishan/actions/runs/33340218912) 中 `Linux · Node 24` 与 `Incremental invariants` 均已通过。
+当前本地结果为 17 个测试文件、66 个测试全部通过；测试覆盖协议、Schema、四语言 Golden IR、项目清单与布局、增量对象复用、Git freshness、CLI 管道输出、静态导出、资源上限、路径隔离、服务补丁和 Web 状态合并。GitHub Actions 当前只在 Linux Node 24 环境运行测试、类型检查、构建和增量不变量；远程状态见 [PR #1](https://github.com/zhyma/shishan/pull/1) 与 [CI workflow](https://github.com/zhyma/shishan/actions/workflows/ci.yml)。
 
 验证记录见 [docs/validation.md](docs/validation.md)。
 
@@ -224,5 +241,5 @@ python3 /path/to/skill-creator/scripts/quick_validate.py skills/shishan-author
 - [产品需求文档](docs/PRD.md)
 - [协议规范](docs/protocol.md)
 - [技术架构](docs/architecture.md)
-- [Phase 0–3B 验证记录](docs/validation.md)
+- [Phase 0–3C 验证记录](docs/validation.md)
 - [MIT License](LICENSE.md)

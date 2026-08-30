@@ -11,12 +11,12 @@ Read [references/protocol.md](references/protocol.md) before authoring or changi
 
 ## Workflow
 
-1. Inspect the target function and all nearby `@shishan` blocks before editing.
+1. Inspect the target function, all nearby `@shishan` blocks, and an existing `.shishan/project.json` before editing.
 2. Identify the function's intent, meaningful actions, decisions, loops, important calls, error boundaries, asynchronous waits, and unusually important implementation details.
-3. Update code and narrative together. Preserve accurate user-written prose when behavior has not changed.
+3. Update code and narrative together. Preserve accurate user-written prose when behavior has not changed. If an entry point, module responsibility, or named cross-function flow changes, update the affected project nodes and edges too.
 4. Place each block immediately above its AST target and at the same indentation.
 5. Run `shishan check <root> --strict`. Fix binding, syntax, and freshness diagnostics before finishing.
-6. Review the rendered flow when the local viewer is available. Confirm that details attach to the intended node and that the graph remains concise.
+6. Review the rendered function and project flows when the local viewer is available. Confirm that details attach to the intended node, project source links still bind, and both graph levels remain concise.
 
 ## Choose the Right Granularity
 
@@ -30,6 +30,7 @@ Read [references/protocol.md](references/protocol.md) before authoring or changi
 - Keep one flow annotation per AST target. For an awaited call, prefer `async` and add `@target` when the callee matters; do not stack `call` and `async` on one statement.
 - Add a `detail` when one or a few concrete statements deserve explanation but should not become flow nodes.
 - Leave ordinary implementation lines unannotated when their meaning is already clear from the surrounding narrative.
+- Keep project flows selective: name the few architecture, request, data, or failure stories a reviewer actually needs. Do not turn every file or dependency into a project node.
 
 ## Authoring Rules
 
@@ -43,6 +44,9 @@ Read [references/protocol.md](references/protocol.md) before authoring or changi
 - A `detail` binds to the next statement by default. Use `@covers statements=N` only for consecutive sibling statements in the same syntax block.
 - Never use `@covers` on flow nodes. Details do not create graph edges.
 - Do not place executable code between an annotation block and its target.
+- Keep project-level narratives in `.shishan/project.json` with `schemaVersion: "shishan/project-v1"`. Use project-relative source paths and exact named symbols; never guess a symbol that was not inspected.
+- Use `entry`, `module`, `process`, `decision`, `error`, `output`, or `external` for project nodes, and `next`, `true`, `false`, `calls`, `error`, or `data` for project edges.
+- Keep node and edge IDs lowercase-hyphenated and unique within their flow. Every edge endpoint and `entryFlow` must exist.
 
 ## Maintain Narratives During Code Changes
 
@@ -51,6 +55,7 @@ Read [references/protocol.md](references/protocol.md) before authoring or changi
 - Split a broad step when the implementation becomes separate user-meaningful actions.
 - Merge or remove annotations when a refactor makes them redundant.
 - Remove an annotation when its target is deleted; do not leave historical prose in active source.
+- Rename or remove project source references when their bound symbol moves or disappears. Re-evaluate adjacent project summaries and edges when a module responsibility changes.
 - Treat a changed `@covers` span as a correctness-sensitive edit. Recount sibling statements after inserting, removing, or reordering code.
 - Treat `SHISHAN501` as a required narrative review. Update the explanation only when behavior, intent, or important implementation details changed; never make a cosmetic prose edit solely to change the fingerprint.
 - Do not invent business intent. If the code and available context do not establish intent, use a factual implementation summary or ask the user.
@@ -63,3 +68,4 @@ Read [references/protocol.md](references/protocol.md) before authoring or changi
 - Each annotation binds to the intended AST node.
 - Function inputs, outputs, major decisions, loops, important calls, error paths, and asynchronous waits are understandable from the narrative.
 - Detailed callouts are useful when expanded and do not overwhelm the default flow.
+- Existing project flows pass validation, retain accurate source bindings, and still tell an end-to-end story without becoming a file inventory.

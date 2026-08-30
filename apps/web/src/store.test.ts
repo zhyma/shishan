@@ -58,6 +58,8 @@ describe('project patch store', () => {
       protocolVersion: PROTOCOL_VERSION,
       generation: 1,
       rootName: 'demo',
+      projectNarrative: null,
+      projectDiagnostics: [],
       files: [file('a.ts', 'a1'), file('b.ts', 'b1')],
       coverage,
       metrics
@@ -67,6 +69,7 @@ describe('project patch store', () => {
     const patch: ProjectPatch = {
       protocolVersion: PROTOCOL_VERSION,
       generation: 2,
+      projectNarrativeChanged: false,
       upsertFiles: [file('a.ts', 'a2')],
       removedFiles: [],
       coverage,
@@ -92,6 +95,8 @@ describe('project patch store', () => {
       protocolVersion: PROTOCOL_VERSION,
       generation: 3,
       rootName: 'demo',
+      projectNarrative: null,
+      projectDiagnostics: [],
       files: [file('a.ts', 'a3')],
       coverage: { ...coverage, files: 1 },
       metrics
@@ -99,6 +104,7 @@ describe('project patch store', () => {
     const stale: ProjectPatch = {
       protocolVersion: PROTOCOL_VERSION,
       generation: 2,
+      projectNarrativeChanged: false,
       upsertFiles: [file('a.ts', 'stale')],
       removedFiles: [],
       coverage: { ...coverage, files: 1 },

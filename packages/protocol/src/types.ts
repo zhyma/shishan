@@ -1,4 +1,5 @@
-export const PROTOCOL_VERSION = 'shishan/v1.1' as const;
+export const PROTOCOL_VERSION = 'shishan/v1.2' as const;
+export const PROJECT_NARRATIVE_VERSION = 'shishan/project-v1' as const;
 
 export type SupportedLanguage =
   | 'python'
@@ -20,6 +21,21 @@ export type AnnotationKind = NarrativeKind | 'detail';
 export type ParseMode = 'full' | 'incremental' | 'reused';
 export type DiagnosticSeverity = 'error' | 'warning' | 'info';
 export type EdgeKind = 'next' | 'true' | 'false' | 'body' | 'exit';
+export type ProjectNarrativeNodeKind =
+  | 'entry'
+  | 'module'
+  | 'process'
+  | 'decision'
+  | 'error'
+  | 'output'
+  | 'external';
+export type ProjectNarrativeEdgeKind =
+  | 'next'
+  | 'true'
+  | 'false'
+  | 'calls'
+  | 'error'
+  | 'data';
 
 export interface SourcePosition {
   line: number;
@@ -104,6 +120,64 @@ export interface FileAnalysis {
   syntaxError: boolean;
 }
 
+export interface ProjectNarrativeSourceReference {
+  path: string;
+  symbol?: string;
+}
+
+export interface ProjectNarrativeSource
+  extends ProjectNarrativeSourceReference {
+  range?: SourceRange;
+  narrativeId?: string;
+}
+
+export interface ProjectNarrativeManifestNode {
+  id: string;
+  kind: ProjectNarrativeNodeKind;
+  label: string;
+  summary: string;
+  source?: ProjectNarrativeSourceReference;
+}
+
+export interface ProjectNarrativeNode
+  extends Omit<ProjectNarrativeManifestNode, 'source'> {
+  source?: ProjectNarrativeSource;
+}
+
+export interface ProjectNarrativeEdge {
+  id: string;
+  source: string;
+  target: string;
+  kind: ProjectNarrativeEdgeKind;
+  label?: string;
+}
+
+export interface ProjectNarrativeManifestFlow {
+  id: string;
+  title: string;
+  summary: string;
+  nodes: ProjectNarrativeManifestNode[];
+  edges: ProjectNarrativeEdge[];
+}
+
+export interface ProjectNarrativeFlow
+  extends Omit<ProjectNarrativeManifestFlow, 'nodes'> {
+  nodes: ProjectNarrativeNode[];
+}
+
+export interface ProjectNarrativeManifest {
+  schemaVersion: typeof PROJECT_NARRATIVE_VERSION;
+  title: string;
+  summary: string;
+  entryFlow: string;
+  flows: ProjectNarrativeManifestFlow[];
+}
+
+export interface ProjectNarrative
+  extends Omit<ProjectNarrativeManifest, 'flows'> {
+  flows: ProjectNarrativeFlow[];
+}
+
 export interface ProjectCoverage extends FileCoverage {
   files: number;
   filesWithNarratives: number;
@@ -130,6 +204,8 @@ export interface ProjectSnapshot {
   protocolVersion: typeof PROTOCOL_VERSION;
   generation: number;
   rootName: string;
+  projectNarrative: ProjectNarrative | null;
+  projectDiagnostics: Diagnostic[];
   files: FileAnalysis[];
   coverage: ProjectCoverage;
   metrics: IndexMetrics;
@@ -138,6 +214,9 @@ export interface ProjectSnapshot {
 export interface ProjectPatch {
   protocolVersion: typeof PROTOCOL_VERSION;
   generation: number;
+  projectNarrativeChanged: boolean;
+  projectNarrative?: ProjectNarrative | null;
+  projectDiagnostics?: Diagnostic[];
   upsertFiles: FileAnalysis[];
   removedFiles: string[];
   coverage: ProjectCoverage;

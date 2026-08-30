@@ -130,7 +130,10 @@ function projectOptions(flags: ReadonlyMap<string, string | true>): ProjectIndex
 }
 
 function allDiagnostics(snapshot: ProjectSnapshot): Diagnostic[] {
-  return snapshot.files.flatMap((file) => file.diagnostics);
+  return [
+    ...snapshot.projectDiagnostics,
+    ...snapshot.files.flatMap((file) => file.diagnostics)
+  ];
 }
 
 function formatDiagnostic(diagnostic: Diagnostic): string {
@@ -178,6 +181,11 @@ async function scan(arguments_: ParsedArguments): Promise<void> {
         '; details: ' +
         snapshot.coverage.details +
         '.',
+      'Project flows: ' +
+        (snapshot.projectNarrative?.flows.length ?? 0) +
+        (snapshot.projectNarrative
+          ? ' (entry: ' + snapshot.projectNarrative.entryFlow + ').'
+          : ' (no .shishan/project.json).'),
       'Diagnostics: ' + diagnostics.length + '.',
       'Parse operations: ' + snapshot.metrics.totalParseOperations + '.',
       'Freshness baseline: ' + (index.freshnessBase() ?? 'disabled') + '.'

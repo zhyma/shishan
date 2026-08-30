@@ -1,32 +1,97 @@
 {
   "name": "shishan-vscode",
   "displayName": "ShiShan Code Narrative",
-  "description": "Open the ShiShan narrative UI and navigate back to source.",
-  "version": "0.1.0",
+  "description": "Browse project-level code narratives, open the Web overview, and navigate back to source.",
+  "version": "0.2.0",
   "private": true,
   "publisher": "zhyma",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zhyma/shishan.git"
+  },
   "engines": {
     "vscode": ">=1.85.0"
   },
-  "categories": ["Visualization", "Other"],
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
   "main": "./dist/extension.js",
   "activationEvents": [
     "onCommand:shishan.openNarrative",
     "onCommand:shishan.checkNarrative",
+    "onCommand:shishan.refreshProjectNarrative",
+    "onCommand:shishan.openProjectSource",
+    "onView:shishan.projectNarrative",
+    "workspaceContains:.shishan/project.json",
     "onUri"
   ],
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "shishan",
+          "title": "ShiShan",
+          "icon": "media/shishan.svg"
+        }
+      ]
+    },
+    "views": {
+      "shishan": [
+        {
+          "id": "shishan.projectNarrative",
+          "name": "Project Narrative",
+          "icon": "media/shishan.svg"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "shishan.projectNarrative",
+        "contents": "No `.shishan/project.json` is available in this workspace.\n[Open Web Overview](command:shishan.openNarrative)"
+      }
+    ],
     "commands": [
       {
         "command": "shishan.openNarrative",
-        "title": "ShiShan: Open Code Narrative"
+        "title": "ShiShan: Open Project Narrative",
+        "icon": "$(type-hierarchy)"
       },
       {
         "command": "shishan.checkNarrative",
-        "title": "ShiShan: Check Narrative Freshness"
+        "title": "ShiShan: Check Narrative Freshness",
+        "icon": "$(pass)"
+      },
+      {
+        "command": "shishan.refreshProjectNarrative",
+        "title": "ShiShan: Refresh Project Narrative",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "shishan.openProjectSource",
+        "title": "ShiShan: Open Project Narrative Source"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "shishan.openNarrative",
+          "when": "view == shishan.projectNarrative",
+          "group": "navigation@1"
+        },
+        {
+          "command": "shishan.refreshProjectNarrative",
+          "when": "view == shishan.projectNarrative",
+          "group": "navigation@2"
+        },
+        {
+          "command": "shishan.checkNarrative",
+          "when": "view == shishan.projectNarrative",
+          "group": "navigation@3"
+        }
+      ]
+    },
     "configuration": {
       "title": "ShiShan",
       "properties": {
@@ -52,9 +117,11 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "package": "npm run build && vsce package --no-dependencies"
   },
   "devDependencies": {
-    "@types/vscode": "1.85.0"
+    "@types/vscode": "1.85.0",
+    "@vscode/vsce": "^3.9.2"
   }
 }

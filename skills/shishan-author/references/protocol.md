@@ -42,6 +42,40 @@ Details attach to the smallest annotated flow node containing their statement sp
 
 Only one flow annotation may bind to one AST target. For an awaited call, prefer `async` and add `@target` when the callee matters; do not stack `call` and `async` blocks on the same statement.
 
+## Project Narrative Manifest
+
+An optional `.shishan/project.json` supplies the default project-level overview. It is version-controlled natural-language architecture, not an automatically inferred call graph.
+
+```json
+{
+  "schemaVersion": "shishan/project-v1",
+  "title": "Request engine",
+  "summary": "Turn one request into a response.",
+  "entryFlow": "request-lifecycle",
+  "flows": [
+    {
+      "id": "request-lifecycle",
+      "title": "Request lifecycle",
+      "summary": "Follow the primary request path.",
+      "nodes": [
+        {
+          "id": "receive-request",
+          "kind": "entry",
+          "label": "Receive request",
+          "summary": "Accept the platform request.",
+          "source": { "path": "src/app.ts", "symbol": "fetch" }
+        }
+      ],
+      "edges": []
+    }
+  ]
+}
+```
+
+Project node kinds are `entry`, `module`, `process`, `decision`, `error`, `output`, and `external`. Edge kinds are `next`, `true`, `false`, `calls`, `error`, and `data`.
+
+Use lowercase-hyphenated IDs. `entryFlow` and every edge endpoint must exist. Source paths are repository-relative; a source symbol is optional but must be copied from an inspected named function or method. Keep flows small and reader-oriented. Update an existing manifest when architecture, an entry point, a module responsibility, or an explicitly shown cross-function path changes. Do not create a manifest for an unrelated local refactor unless the project asks for one.
+
 ## Python Example
 
 ```python
@@ -133,3 +167,4 @@ JSX and TSX return statements may contain JSX; they use the same annotation rule
 - `SHISHAN305–306`: duplicate ID or more than one flow annotation on one syntax target.
 - `SHISHAN401`: named function has no function narrative; informational by default.
 - `SHISHAN501`: implementation tokens changed from the selected Git baseline while the function narrative stayed byte-for-byte equivalent after normalization; review and meaningfully synchronize the narrative.
+- `SHISHAN601–606`: project manifest read/schema, topology, path, or source-symbol binding diagnostics.

@@ -2,9 +2,11 @@ import { basename, relative, resolve, sep } from 'node:path';
 import { lstat, readFile } from 'node:fs/promises';
 import {
   PROTOCOL_VERSION,
+  type Diagnostic,
   type FileAnalysis,
   type IndexMetrics,
   type ProjectCoverage,
+  type ProjectNarrative,
   type ProjectPatch,
   type ProjectSnapshot,
   type ShiShanConfig,
@@ -22,6 +24,10 @@ import {
   GitFreshnessChecker,
   type GitFreshnessOptions
 } from './freshness.js';
+import {
+  PROJECT_NARRATIVE_FILE,
+  loadProjectNarrative
+} from './project-narrative.js';
 
 export interface ProjectIndexOptions {
   freshness?: GitFreshnessOptions;
@@ -62,6 +68,13 @@ function makeMetrics(): IndexMetrics {
     skippedUnchangedFiles: 0,
     lastUpdate: { ...EMPTY_UPDATE }
   };
+}
+
+function projectNarrativeStateKey(
+  narrative: ProjectNarrative | null,
+  diagnostics: readonly Diagnostic[]
+): string {
+  return JSON.stringify({ narrative, diagnostics });
 }
 
 function oversizeAnalysis(
@@ -159,6 +172,8 @@ export class ProjectIndex {
     details: 0
   };
   readonly #metrics = makeMetrics();
+  #projectNarrative: ProjectNarrative | null = null;
+  #projectDiagnostics: Diagnostic[] = [];
   #generation = 0;
 
   private constructor(
@@ -192,7 +207,7 @@ export class ProjectIndex {
 
   async initialize(): Promise<ProjectSnapshot> {
     const paths = await discoverSourcePaths(this.root, this.config);
-    await this.#updatePaths(paths, false);
+    await this.#updatePaths([...paths, PROJECT_NARRATIVE_FILE], false);
     return this.snapshot();
   }
 
@@ -265,6 +280,8 @@ export class ProjectIndex {
       protocolVersion: PROTOCOL_VERSION,
       generation: this.#generation,
       rootName: basename(this.root),
+      projectNarrative: this.#projectNarrative,
+      projectDiagnostics: [...this.#projectDiagnostics],
       files: [...this.#files.values()].sort((left, right) =>
         left.path.localeCompare(right.path)
       ),
@@ -295,27 +312,49 @@ export class ProjectIndex {
     return this.#updatePaths(inputs, true);
   }
 
+  async #refreshProjectNarrative(): Promise<boolean> {
+    const previous = projectNarrativeStateKey(
+      this.#projectNarrative,
+      this.#projectDiagnostics
+    );
+    const result = await loadProjectNarrative(this.root, this.#files);
+    this.#projectNarrative = result.narrative;
+    this.#projectDiagnostics = result.diagnostics;
+    return (
+      previous !==
+      projectNarrativeStateKey(this.#projectNarrative, this.#projectDiagnostics)
+    );
+  }
+
   async #updatePaths(
     inputs: readonly string[],
     refreshFreshness: boolean
   ): Promise<ProjectPatch> {
     const started = performance.now();
-    const requestedPaths = [
+    const normalizedInputs = [
       ...new Set(
         inputs
           .map((input) => normalizeRelative(this.root, input))
           .filter((path): path is string => Boolean(path))
       )
-    ].filter(this.#pathFilter);
+    ];
+    const projectNarrativeRequested = normalizedInputs.includes(
+      PROJECT_NARRATIVE_FILE
+    );
+    const sourcePaths = normalizedInputs.filter(this.#pathFilter);
+    const requestedPaths = [
+      ...sourcePaths,
+      ...(projectNarrativeRequested ? [PROJECT_NARRATIVE_FILE] : [])
+    ];
     if (refreshFreshness) {
-      await this.#freshness?.refreshPaths(requestedPaths);
+      await this.#freshness?.refreshPaths(sourcePaths);
     }
     const parsedPaths: string[] = [];
     const removedPaths: string[] = [];
     const unchangedPaths: string[] = [];
     const upsertFiles: FileAnalysis[] = [];
 
-    for (const path of requestedPaths) {
+    for (const path of sourcePaths) {
       const absolute = resolve(this.root, path);
       let metadata;
       try {
@@ -428,7 +467,15 @@ export class ProjectIndex {
       }
     }
 
-    if (upsertFiles.length > 0 || removedPaths.length > 0) {
+    const sourceGraphChanged = upsertFiles.length > 0 || removedPaths.length > 0;
+    const projectNarrativeChanged =
+      projectNarrativeRequested || sourceGraphChanged
+        ? await this.#refreshProjectNarrative()
+        : false;
+    if (projectNarrativeRequested && projectNarrativeChanged) {
+      parsedPaths.push(PROJECT_NARRATIVE_FILE);
+    }
+    if (sourceGraphChanged || projectNarrativeChanged) {
       this.#generation += 1;
     }
     const lastUpdate: UpdateMetrics = {
@@ -447,6 +494,13 @@ export class ProjectIndex {
     return {
       protocolVersion: PROTOCOL_VERSION,
       generation: this.#generation,
+      projectNarrativeChanged,
+      ...(projectNarrativeChanged
+        ? {
+            projectNarrative: this.#projectNarrative,
+            projectDiagnostics: [...this.#projectDiagnostics]
+          }
+        : {}),
       upsertFiles,
       removedFiles: removedPaths,
       coverage: this.coverage(),

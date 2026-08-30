@@ -3,6 +3,7 @@ import type { ServerResponse } from 'node:http';
 import { relative, resolve, sep } from 'node:path';
 import fastifyStatic from '@fastify/static';
 import {
+  PROJECT_NARRATIVE_FILE,
   ProjectIndex
 } from '@shishan/core';
 import {
@@ -50,6 +51,9 @@ function ignoredPath(
     return false;
   }
   const parts = local.split('/');
+  if (local === '.shishan' || local === PROJECT_NARRATIVE_FILE) {
+    return false;
+  }
   if (
     parts.some((part) =>
       ['.git', 'node_modules', 'dist', 'build', '.shishan'].includes(part)
@@ -223,7 +227,11 @@ export async function createShiShanServer(
   }
 
   const broadcast = (patch: ProjectPatch): void => {
-    if (patch.upsertFiles.length === 0 && patch.removedFiles.length === 0) {
+    if (
+      !patch.projectNarrativeChanged &&
+      patch.upsertFiles.length === 0 &&
+      patch.removedFiles.length === 0
+    ) {
       return;
     }
     assertProtocolPayload(patch);
@@ -283,6 +291,10 @@ export async function createShiShanServer(
     watcher.on('add', schedule);
     watcher.on('change', schedule);
     watcher.on('unlink', schedule);
+    await new Promise<void>((resolveReady, rejectReady) => {
+      watcher?.once('ready', resolveReady);
+      watcher?.once('error', rejectReady);
+    });
     heartbeat = setInterval(() => {
       const payload = eventPayload('heartbeat', {
         generation: index.snapshot().generation

@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
+  Diagnostic,
   FileAnalysis,
   NarrativeNode,
+  ProjectNarrativeNode,
   ProjectPatch,
   ProjectSnapshot,
   SourceRange
 } from '@shishan/protocol';
 import { NarrativeGraph } from './NarrativeGraph.js';
+import { ProjectNarrativeGraph } from './ProjectNarrativeGraph.js';
 import { SourcePanel } from './SourcePanel.js';
 import { narrativeNodeLabel } from './graph-layout.js';
 import { readStaticData } from './static-data.js';
@@ -22,7 +25,20 @@ interface Selection {
   narrativeId: string;
 }
 
+interface DiagnosticEntry {
+  file?: FileAnalysis;
+  diagnostic: Diagnostic;
+}
+
+type WorkspaceView = 'overview' | 'functions';
+
 const STATIC_DATA = readStaticData();
+
+function initialView(): WorkspaceView {
+  return new URLSearchParams(window.location.search).get('view') === 'functions'
+    ? 'functions'
+    : 'overview';
+}
 
 function firstSelection(files: Iterable<FileAnalysis>): Selection | undefined {
   for (const file of files) {
@@ -50,6 +66,8 @@ export default function App() {
   const [project, setProject] = useState<ProjectState | undefined>(() =>
     STATIC_DATA ? stateFromSnapshot(STATIC_DATA.snapshot) : undefined
   );
+  const [view, setView] = useState<WorkspaceView>(initialView);
+  const [flowId, setFlowId] = useState('');
   const [selection, setSelection] = useState<Selection>();
   const [sourceRange, setSourceRange] = useState<SourceRange>();
   const [connected, setConnected] = useState(Boolean(STATIC_DATA));
@@ -146,12 +164,20 @@ export default function App() {
         : [],
     [project?.files]
   );
-  const diagnostics = useMemo(
-    () =>
-      allFiles.flatMap((file) =>
-        file.diagnostics.map((diagnostic) => ({ file, diagnostic }))
-      ),
+  const narratedFiles = useMemo(
+    () => allFiles.filter((file) => file.functions.length > 0),
     [allFiles]
+  );
+  const diagnostics = useMemo<DiagnosticEntry[]>(
+    () =>
+      [
+        ...(project?.projectDiagnostics.map((diagnostic) => ({ diagnostic })) ??
+          []),
+        ...allFiles.flatMap((file) =>
+          file.diagnostics.map((diagnostic) => ({ file, diagnostic }))
+        )
+      ].filter(({ diagnostic }) => diagnostic.severity !== 'info'),
+    [allFiles, project?.projectDiagnostics]
   );
   const staleDiagnostics = useMemo(
     () =>
@@ -163,9 +189,9 @@ export default function App() {
   const files = useMemo(() => {
     const query = filter.trim().toLowerCase();
     if (!query) {
-      return allFiles;
+      return narratedFiles;
     }
-    return allFiles.filter(
+    return narratedFiles.filter(
       (file) =>
         file.path.toLowerCase().includes(query) ||
         file.language.toLowerCase().includes(query) ||
@@ -176,33 +202,54 @@ export default function App() {
             item.summary.toLowerCase().includes(query)
         )
     );
-  }, [allFiles, filter]);
+  }, [filter, narratedFiles]);
   const displayedFiles = files.slice(0, 500);
   const narrative = project ? findNarrative(project, selection) : undefined;
   const selectedVersion =
     project && selection
       ? project.files.get(selection.path)?.contentHash
       : undefined;
+  const projectFlows = project?.projectNarrative?.flows ?? [];
+  const activeFlow = useMemo(() => {
+    const story = project?.projectNarrative;
+    if (!story) {
+      return undefined;
+    }
+    return (
+      story.flows.find((flow) => flow.id === flowId) ??
+      story.flows.find((flow) => flow.id === story.entryFlow) ??
+      story.flows[0]
+    );
+  }, [flowId, project?.projectNarrative]);
 
   useEffect(() => {
-    if (!project) {
+    const story = project?.projectNarrative;
+    if (!story) {
+      setFlowId('');
+      return;
+    }
+    if (!story.flows.some((flow) => flow.id === flowId)) {
+      setFlowId(story.entryFlow);
+    }
+  }, [flowId, project?.projectNarrative]);
+
+  useEffect(() => {
+    if (!project || view !== 'functions') {
       return;
     }
     const selected = findNarrative(project, selection);
     if (!selected) {
       const next = firstSelection(files);
       setSelection(next);
-      setSourceRange(
-        next ? findNarrative(project, next)?.source : undefined
-      );
+      setSourceRange(next ? findNarrative(project, next)?.source : undefined);
     }
-  }, [files, project, selection]);
+  }, [files, project, selection, view]);
 
   useEffect(() => {
-    if (narrative && selectedVersion) {
+    if (view === 'functions' && narrative && selectedVersion) {
       setSourceRange(narrative.source);
     }
-  }, [narrative?.id, selectedVersion]);
+  }, [narrative?.id, selectedVersion, view]);
 
   const selectNarrative = useCallback(
     (path: string, item: NarrativeNode): void => {
@@ -214,6 +261,56 @@ export default function App() {
   const selectSource = useCallback((range: SourceRange): void => {
     setSourceRange(range);
   }, []);
+  const selectProjectSource = useCallback((node: ProjectNarrativeNode): void => {
+    if (node.source?.range) {
+      setSourceRange(node.source.range);
+    }
+  }, []);
+  const openProjectFunction = useCallback(
+    (node: ProjectNarrativeNode): void => {
+      const source = node.source;
+      if (!source?.narrativeId || !project) {
+        return;
+      }
+      const target = project.files
+        .get(source.path)
+        ?.functions.find((item) => item.id === source.narrativeId);
+      if (!target) {
+        return;
+      }
+      setView('functions');
+      selectNarrative(source.path, target);
+    },
+    [project, selectNarrative]
+  );
+
+  const openDiagnostic = useCallback(
+    ({ file, diagnostic }: DiagnosticEntry): void => {
+      if (file) {
+        const target = diagnostic.annotationId
+          ? file.functions.find(
+              (item) => item.localId === diagnostic.annotationId
+            )
+          : undefined;
+        if (target) {
+          setView('functions');
+          selectNarrative(file.path, target);
+        }
+      } else if (diagnostic.annotationId && project?.projectNarrative) {
+        const targetFlow = project.projectNarrative.flows.find((flow) =>
+          flow.nodes.some((node) => node.id === diagnostic.annotationId)
+        );
+        if (targetFlow) {
+          setView('overview');
+          setFlowId(targetFlow.id);
+        }
+      }
+      if (diagnostic.range) {
+        setSourceRange(diagnostic.range);
+      }
+    },
+    [project?.projectNarrative, selectNarrative]
+  );
 
   if (!project) {
     return (
@@ -225,6 +322,8 @@ export default function App() {
     );
   }
 
+  const showSource = view === 'functions' || Boolean(sourceRange);
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -235,7 +334,35 @@ export default function App() {
             <strong>{project.rootName}</strong>
           </div>
         </div>
+        <div
+          className="mobile-view-switcher"
+          role="tablist"
+          aria-label="Narrative level"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'overview'}
+            className={view === 'overview' ? 'active' : ''}
+            onClick={() => setView('overview')}
+          >
+            Overview
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'functions'}
+            className={view === 'functions' ? 'active' : ''}
+            onClick={() => setView('functions')}
+          >
+            Functions
+          </button>
+        </div>
         <div className="project-stats">
+          <div>
+            <span>Project flows</span>
+            <strong>{project.projectNarrative?.flows.length ?? 0}</strong>
+          </div>
           <div>
             <span>Coverage</span>
             <strong>{project.coverage.percent}%</strong>
@@ -246,10 +373,6 @@ export default function App() {
               {project.coverage.narratedFunctions}/
               {project.coverage.totalFunctions}
             </strong>
-          </div>
-          <div>
-            <span>Generation</span>
-            <strong>{project.generation}</strong>
           </div>
           <div>
             <span>Diagnostics</span>
@@ -274,20 +397,52 @@ export default function App() {
         </div>
       </header>
 
-      <div className="workspace">
-        <nav className="file-sidebar" aria-label="Narrated functions">
+      <div
+        className={
+          'workspace workspace-' +
+          view +
+          (showSource ? ' source-open' : ' source-closed')
+        }
+      >
+        <nav className="file-sidebar" aria-label="Code narrative navigation">
           <div className="sidebar-heading">
-            <span className="eyebrow">Project map</span>
-            <strong>{project.coverage.files} source files</strong>
-            <label>
-              <span className="visually-hidden">Filter files and functions</span>
-              <input
-                type="search"
-                value={filter}
-                placeholder="Filter files or functions"
-                onChange={(event) => setFilter(event.target.value)}
-              />
-            </label>
+            <span className="eyebrow">Explore</span>
+            <strong>
+              {view === 'overview'
+                ? 'Overall narrative'
+                : narratedFiles.length + ' narrated files'}
+            </strong>
+            <div className="view-switcher" role="tablist" aria-label="Narrative level">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === 'overview'}
+                className={view === 'overview' ? 'active' : ''}
+                onClick={() => setView('overview')}
+              >
+                Overview
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === 'functions'}
+                className={view === 'functions' ? 'active' : ''}
+                onClick={() => setView('functions')}
+              >
+                Functions
+              </button>
+            </div>
+            {view === 'functions' ? (
+              <label>
+                <span className="visually-hidden">Filter files and functions</span>
+                <input
+                  type="search"
+                  value={filter}
+                  placeholder="Filter files or functions"
+                  onChange={(event) => setFilter(event.target.value)}
+                />
+              </label>
+            ) : null}
           </div>
           <section className="quality-panel">
             <button
@@ -304,92 +459,122 @@ export default function App() {
                 {diagnostics.length === 0 ? (
                   <p>No diagnostics in the current index.</p>
                 ) : (
-                  diagnostics.map(({ file, diagnostic }, index) => (
+                  diagnostics.map((entry, index) => (
                     <button
                       type="button"
                       key={
-                        diagnostic.code +
+                        entry.diagnostic.code +
                         ':' +
-                        diagnostic.path +
+                        entry.diagnostic.path +
                         ':' +
                         index
                       }
-                      onClick={() => {
-                        const target = diagnostic.annotationId
-                          ? file.functions.find(
-                              (item) =>
-                                item.localId === diagnostic.annotationId
-                            )
-                          : undefined;
-                        if (target) {
-                          selectNarrative(file.path, target);
-                        }
-                        if (diagnostic.range) {
-                          setSourceRange(diagnostic.range);
-                        }
-                      }}
+                      onClick={() => openDiagnostic(entry)}
                     >
                       <span>
-                        {diagnostic.severity} · {diagnostic.code}
+                        {entry.diagnostic.severity} · {entry.diagnostic.code}
                       </span>
-                      <strong>{diagnostic.path}</strong>
-                      <small>{diagnostic.message}</small>
+                      <strong>{entry.diagnostic.path}</strong>
+                      <small>{entry.diagnostic.message}</small>
                     </button>
                   ))
                 )}
               </div>
             ) : null}
           </section>
-          <div className="file-list">
-            {displayedFiles.map((file) => (
-              <section className="file-group" key={file.path}>
-                <header>
-                  <span className={'language-dot lang-' + file.language} />
-                  <span title={file.path}>{file.path}</span>
-                  {file.diagnostics.length > 0 ? (
-                    <small>{file.diagnostics.length}</small>
-                  ) : null}
-                </header>
-                {file.functions.length > 0 ? (
-                  file.functions.map((item) => (
-                    <button
-                      className={
-                        selection?.narrativeId === item.id
-                          ? 'function-link active'
-                          : 'function-link'
-                      }
-                      key={item.id}
-                      type="button"
-                      onClick={() => selectNarrative(file.path, item)}
-                    >
-                      <span>{item.name ?? item.localId}</span>
-                      <small>
-                        {file.diagnostics.some(
-                          (diagnostic) =>
-                            diagnostic.code === 'SHISHAN501' &&
-                            diagnostic.annotationId === item.localId
-                        )
-                          ? 'stale · '
-                          : ''}
-                        {narrativeNodeLabel(item)}
-                      </small>
-                    </button>
-                  ))
-                ) : (
-                  <p className="no-functions">No narrated functions</p>
-                )}
-              </section>
-            ))}
-            {files.length === 0 ? (
-              <p className="filter-empty">No files match “{filter}”.</p>
-            ) : null}
-            {files.length > displayedFiles.length ? (
-              <p className="filter-empty">
-                Showing the first {displayedFiles.length} files. Use the filter
-                to narrow {files.length} matches.
-              </p>
-            ) : null}
-          </div>
+
+          {view === 'overview' ? (
+            <div className="flow-sidebar">
+              {project.projectNarrative ? (
+                <>
+                  <section className="project-intro">
+                    <span className="eyebrow">Project story</span>
+                    <h2>{project.projectNarrative.title}</h2>
+                    <p>{project.projectNarrative.summary}</p>
+                  </section>
+                  <section className="flow-list" aria-label="Project flows">
+                    <span className="eyebrow">Named flows</span>
+                    {project.projectNarrative.flows.map((flow) => (
+                      <button
+                        type="button"
+                        key={flow.id}
+                        className={activeFlow?.id === flow.id ? 'active' : ''}
+                        onClick={() => {
+                          setFlowId(flow.id);
+                          setSourceRange(undefined);
+                        }}
+                      >
+                        <strong>{flow.title}</strong>
+                        <span>{flow.nodes.length} nodes</span>
+                        <small>{flow.summary}</small>
+                      </button>
+                    ))}
+                  </section>
+                </>
+              ) : (
+                <section className="project-intro manifest-missing">
+                  <span className="eyebrow">Manifest missing</span>
+                  <h2>No overall story yet</h2>
+                  <p>
+                    Add <code>.shishan/project.json</code> to name the project’s
+                    important flows. The function index remains available in
+                    the Functions tab.
+                  </p>
+                </section>
+              )}
+            </div>
+          ) : (
+            <div className="file-list">
+              {displayedFiles.map((file) => (
+                <section className="file-group" key={file.path}>
+                  <header>
+                    <span className={'language-dot lang-' + file.language} />
+                    <span title={file.path}>{file.path}</span>
+                    {file.diagnostics.length > 0 ? (
+                      <small>{file.diagnostics.length}</small>
+                    ) : null}
+                  </header>
+                  {file.functions.length > 0 ? (
+                    file.functions.map((item) => (
+                      <button
+                        className={
+                          selection?.narrativeId === item.id
+                            ? 'function-link active'
+                            : 'function-link'
+                        }
+                        key={item.id}
+                        type="button"
+                        onClick={() => selectNarrative(file.path, item)}
+                      >
+                        <span>{item.name ?? item.localId}</span>
+                        <small>
+                          {file.diagnostics.some(
+                            (diagnostic) =>
+                              diagnostic.code === 'SHISHAN501' &&
+                              diagnostic.annotationId === item.localId
+                          )
+                            ? 'stale · '
+                            : ''}
+                          {narrativeNodeLabel(item)}
+                        </small>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="no-functions">No narrated functions</p>
+                  )}
+                </section>
+              ))}
+              {files.length === 0 ? (
+                <p className="filter-empty">No files match “{filter}”.</p>
+              ) : null}
+              {files.length > displayedFiles.length ? (
+                <p className="filter-empty">
+                  Showing the first {displayedFiles.length} files. Use the filter
+                  to narrow {files.length} matches.
+                </p>
+              ) : null}
+            </div>
+          )}
           <footer>
             <span>
               Last update{' '}
@@ -405,7 +590,64 @@ export default function App() {
         </nav>
 
         <main className="narrative-workspace">
-          {narrative ? (
+          {view === 'overview' ? (
+            activeFlow ? (
+              <>
+                <div className="narrative-heading project-flow-heading">
+                  <div>
+                    <span className="eyebrow">
+                      Overall narrative · {activeFlow.id}
+                    </span>
+                    <h1>{activeFlow.title}</h1>
+                    <p>{activeFlow.summary}</p>
+                  </div>
+                  <div className="flow-heading-meta">
+                    {projectFlows.length > 1 ? (
+                      <select
+                        className="mobile-flow-select"
+                        aria-label="Choose project flow"
+                        value={activeFlow.id}
+                        onChange={(event) => {
+                          setFlowId(event.target.value);
+                          setSourceRange(undefined);
+                        }}
+                      >
+                        {projectFlows.map((flow) => (
+                          <option key={flow.id} value={flow.id}>
+                            {flow.title}
+                          </option>
+                        ))}
+                      </select>
+                    ) : null}
+                    <span>{activeFlow.nodes.length} narrative nodes</span>
+                    {sourceRange ? (
+                      <button
+                        type="button"
+                        onClick={() => setSourceRange(undefined)}
+                      >
+                        Hide source
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+                <ProjectNarrativeGraph
+                  flow={activeFlow}
+                  onSelectSource={selectProjectSource}
+                  onOpenFunction={openProjectFunction}
+                />
+              </>
+            ) : (
+              <div className="empty-state">
+                <span>◇</span>
+                <h1>No project narrative yet</h1>
+                <p>
+                  Define the few flows people need to understand in{' '}
+                  <code>.shishan/project.json</code>. ShiShan will validate and
+                  bind its nodes to real source symbols.
+                </p>
+              </div>
+            )
+          ) : narrative ? (
             <>
               <div className="narrative-heading">
                 <div>
@@ -438,16 +680,18 @@ export default function App() {
           )}
         </main>
 
-        <SourcePanel
-          range={sourceRange}
-          version={
-            sourceRange
-              ? project.files.get(sourceRange.path)?.contentHash
-              : undefined
-          }
-          staticSources={STATIC_DATA?.sources}
-          staticMode={Boolean(STATIC_DATA)}
-        />
+        {showSource ? (
+          <SourcePanel
+            range={sourceRange}
+            version={
+              sourceRange
+                ? project.files.get(sourceRange.path)?.contentHash
+                : undefined
+            }
+            staticSources={STATIC_DATA?.sources}
+            staticMode={Boolean(STATIC_DATA)}
+          />
+        ) : null}
       </div>
     </div>
   );

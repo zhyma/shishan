@@ -322,6 +322,130 @@
         }
       }
     },
+    "projectNarrativeSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "range": {
+          "$ref": "#/$defs/range"
+        },
+        "narrativeId": {
+          "type": "string"
+        }
+      }
+    },
+    "projectNarrativeNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "label", "summary"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "entry",
+            "module",
+            "process",
+            "decision",
+            "error",
+            "output",
+            "external"
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/projectNarrativeSource"
+        }
+      }
+    },
+    "projectNarrativeEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "target", "kind"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": ["next", "true", "false", "calls", "error", "data"]
+        },
+        "label": {
+          "type": "string"
+        }
+      }
+    },
+    "projectNarrativeFlow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "summary", "nodes", "edges"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/projectNarrativeNode"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/projectNarrativeEdge"
+          }
+        }
+      }
+    },
+    "projectNarrative": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "title", "summary", "entryFlow", "flows"],
+      "properties": {
+        "schemaVersion": {
+          "const": "shishan/project-v1"
+        },
+        "title": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "entryFlow": {
+          "type": "string"
+        },
+        "flows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/projectNarrativeFlow"
+          }
+        }
+      }
+    },
     "updateMetrics": {
       "type": "object",
       "additionalProperties": false,
@@ -451,13 +575,15 @@
         "protocolVersion",
         "generation",
         "rootName",
+        "projectNarrative",
+        "projectDiagnostics",
         "files",
         "coverage",
         "metrics"
       ],
       "properties": {
         "protocolVersion": {
-          "const": "shishan/v1.1"
+          "const": "shishan/v1.2"
         },
         "generation": {
           "type": "integer",
@@ -465,6 +591,22 @@
         },
         "rootName": {
           "type": "string"
+        },
+        "projectNarrative": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/projectNarrative"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "projectDiagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
         },
         "files": {
           "type": "array",
@@ -486,6 +628,7 @@
       "required": [
         "protocolVersion",
         "generation",
+        "projectNarrativeChanged",
         "upsertFiles",
         "removedFiles",
         "coverage",
@@ -493,11 +636,30 @@
       ],
       "properties": {
         "protocolVersion": {
-          "const": "shishan/v1.1"
+          "const": "shishan/v1.2"
         },
         "generation": {
           "type": "integer",
           "minimum": 0
+        },
+        "projectNarrativeChanged": {
+          "type": "boolean"
+        },
+        "projectNarrative": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/projectNarrative"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "projectDiagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
         },
         "upsertFiles": {
           "type": "array",
