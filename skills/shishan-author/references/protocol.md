@@ -27,6 +27,25 @@ Supported fields are:
 
 Positions are structural. The annotation binds to the next AST statement at the same indentation. A function annotation may bind through an export or variable declaration to the named function or arrow function it contains.
 
+## Reader Model and Narrative Quality
+
+ShiShan annotations are stored with the code and can be viewed long after the authoring conversation is gone. Write them for a reader who has not seen the repository, the task prompt, or the implementation.
+
+- A project summary first states the problem the software solves and the outcome it provides. Architecture terms come afterward.
+- A function summary states what meaningful result the function produces and, when it is not obvious, how that result contributes to the surrounding workflow.
+- A child node names the object being acted on, the action, and the consequence. It does not rely on “this,” “it,” “the data,” or a variable name whose meaning exists only in source.
+- A branch describes the real choice and the meaning of each path. A loop describes what repeats and when or why repetition ends.
+- Inputs and outputs use domain or workflow meaning. Source identifiers and types may be added as supporting detail, not used as the whole explanation.
+- An implementation detail explains a reason, invariant, compatibility constraint, or side effect that is not obvious from the statements themselves.
+- Internal terms and acronyms are introduced in plain language on first use. Do not make the reader reverse-engineer terms such as “snapshot,” “IR,” or “hydration” from filenames.
+- Use the project's chosen human language consistently. Interface localization does not automatically translate the authored text.
+
+Weak summary: `Process the snapshot.`
+
+Reader-first summary: `Merge the latest project analysis into the browser's local index so the visible narrative matches the files currently on disk.`
+
+Natural language must remain truthful and concise. If purpose cannot be established from code or project documentation, describe only the observable implementation outcome or ask the user instead of inventing intent.
+
 ## Visual Semantics
 
 - `function` is the root of one function narrative.

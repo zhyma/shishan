@@ -1,22 +1,37 @@
 ---
 name: shishan-author
-description: Author and maintain ShiShan natural-language code narratives in Python, C++, TypeScript, TSX, JavaScript, and JSX. Use when implementing or refactoring code in a ShiShan-enabled repository, when asked to add or repair @shishan annotations, or when code behavior changes could make an existing visual narrative stale.
+description: Author and maintain reader-first ShiShan natural-language code narratives in Python, C++, TypeScript, TSX, JavaScript, and JSX. Use when implementing or refactoring code in a ShiShan-enabled repository, when asked to add or repair @shishan annotations, or when code behavior changes could make an existing visual narrative stale. Write for readers who have no prior project or conversation context.
 ---
 
 # ShiShan Author
 
-Keep the implementation and its human-readable narrative aligned. Add annotations at semantic boundaries that help a reviewer understand the program without restating every line.
+Keep the implementation and its human-readable narrative aligned. Add annotations at semantic boundaries that help a first-time reader understand what the program is trying to accomplish, without restating every line.
 
 Read [references/protocol.md](references/protocol.md) before authoring or changing annotations.
 
 ## Workflow
 
-1. Inspect the target function, all nearby `@shishan` blocks, and an existing `.shishan/project.json` before editing.
-2. Identify the function's intent, meaningful actions, decisions, loops, important calls, error boundaries, asynchronous waits, and unusually important implementation details.
+1. Establish the project's purpose and intended reader from its README, product documentation, surrounding module, and existing `.shishan/project.json`. Do not rely on the current chat as the missing explanation.
+2. Inspect the target function and all nearby `@shishan` blocks. Identify its outcome, role in the larger workflow, meaningful actions, decisions, loops, important calls, error boundaries, asynchronous waits, and unusually important implementation details.
 3. Update code and narrative together. Preserve accurate user-written prose when behavior has not changed. If an entry point, module responsibility, or named cross-function flow changes, update the affected project nodes and edges too.
 4. Place each block immediately above its AST target and at the same indentation.
 5. Run `shishan check <root> --strict`. Fix binding, syntax, and freshness diagnostics before finishing.
 6. Review the rendered function and project flows when the local viewer is available. Confirm that details attach to the intended node, project source links still bind, and the project overview, function flow, and implementation-detail levels remain concise.
+7. Perform a cold-reader pass using only the visible labels, summaries, and fields. Confirm that someone who has never seen the repository or conversation can explain what the project does, why each displayed step exists, and what outcome it produces.
+
+## Write for a First-Time Reader
+
+- Treat every narrative as durable product documentation that may be read outside the coding session. Never use the chat, task wording, filename, or source code as the only place where essential context exists.
+- Introduce a project or named flow with the problem it solves, who or what uses it, and the observable outcome before describing internal architecture.
+- Make each function or node summary name the relevant actor or data, the meaningful action, and the result. It should still make sense when shown alone on a card.
+- Prefer ordinary natural-language sentences over compressed engineering shorthand. Explain an internal term or acronym the first time it is needed; omit it when the reader does not need it.
+- Describe inputs and outputs by meaning, not only by variable or type name. An identifier may appear after the plain-language description when it helps source navigation.
+- Explain a branch as the choice the program is making, a loop as the work being repeated and its stopping condition, and an error or async node as the user-visible or workflow consequence.
+- Use `detail` to explain why a few concrete statements exist or what subtle guarantee they create. Do not merely translate the statements into prose.
+- Avoid vague references such as “handle this,” “process the data,” “update it,” or “do the check” when the referent and outcome are not explicit.
+- Match the language already chosen by the project or requested by the user. ShiShan's UI localization does not translate authored narratives.
+- Stay concise by placing context at the highest useful level, then let child nodes add only what changes. Reader-first writing should reduce ambiguity, not repeat the whole project in every annotation.
+- Never invent business intent to make prose sound complete. When the repository does not establish the purpose, write a factual implementation outcome or ask the user.
 
 ## Choose the Right Granularity
 
@@ -38,6 +53,7 @@ Read [references/protocol.md](references/protocol.md) before authoring or changi
 - Use a header shaped as `@shishan <kind> <id>`.
 - Use lowercase hyphenated IDs. Keep function IDs unique within a file and child IDs unique within their function.
 - Add exactly one concise `@summary`. Describe purpose or effect, not source syntax.
+- Write `@summary` as a self-contained natural-language statement. Do not assume the reader already knows the feature, subsystem, request, or data being discussed.
 - Keep the header and fields in consecutive single-line comments using the language's normal comment prefix.
 - Repeat `@input`, `@output`, `@effect`, or `@note` when multiple values are needed.
 - Repeat `@target` on `call` or call-bearing `async` nodes and `@failure` on error nodes when multiple values matter. Keep `@resume` singular.
@@ -71,3 +87,4 @@ Read [references/protocol.md](references/protocol.md) before authoring or changi
 - Detailed callouts are useful when expanded and do not overwhelm the default flow.
 - Existing project flows pass validation, retain accurate source bindings, and still tell an end-to-end story without becoming a file inventory.
 - Project nodes intended for drilldown resolve to narrated functions, and all three display levels remain useful when reviewed in either supported UI language.
+- Reading only the project overview and nested narrative text is sufficient to understand the system's purpose and the role and outcome of each displayed step; unexplained chat context, pronouns, acronyms, and identifier-only descriptions are absent.

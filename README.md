@@ -26,6 +26,8 @@ ShiShan 是一套“代码叙事协议 + 本地解析器 + Web 可视化工具�
 
 当前交付和 CI 只面向 Linux。macOS、Windows 与多 AI 平台 Skill 已明确延期。
 
+如果由另一位 AI Agent 接手，请先阅读 [当前里程碑交接](MILESTONE_HANDOFF.md)。该文件不依赖本次聊天，说明了项目目的、Phase 3D 基线、当前的叙事质量打磨目标、已知边界和验收命令。
+
 ## 快速体验
 
 需要 Node.js 24。
@@ -106,16 +108,19 @@ python3 -m http.server 8080 --directory /tmp/shishan-demo
 Skill 位于 [skills/shishan-author](skills/shishan-author)。将该目录安装到 AI 编程工具的 skills 目录后，可以这样调用：
 
 ```text
-Use $shishan-author to implement this change and keep the code narrative aligned.
+Use $shishan-author to implement this change and keep every affected narrative understandable to someone who has never seen the repository or conversation.
 ```
 
 Skill 会要求代理：
 
+- 先从 README、产品文档和现有项目叙事确认项目解决的问题，不把聊天背景当作说明的一部分；
 - 在实现前读取附近叙事；
+- 用自然语言交代对象、动作、原因和结果，并解释首次出现的必要内部术语；
 - 只在有意义的语义边界加节点；
 - 代码行为变化时同步更新说明；
 - 重新计算 `detail` 的覆盖语句数；
 - 当架构、入口或跨函数流程改变时同步检查 `.shishan/project.json`；
+- 完成一次只看叙事、不看源码的冷读者检查；
 - 完成后运行 `shishan check`。
 
 ## VS Code 薄扩展（Linux）
