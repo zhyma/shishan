@@ -1,0 +1,4 @@
+interface:
+  display_name: "ShiShan Author"
+  short_description: "Write reader-first ShiShan code narratives"
+  default_prompt: "Use $shishan-author to implement this change and keep every affected narrative understandable to someone who has never seen the repository or conversation."

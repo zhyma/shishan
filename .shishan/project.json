@@ -1,0 +1,226 @@
+{
+  "schemaVersion": "shishan/project-v1",
+  "title": "ShiShan narrative system",
+  "summary": "Turn structured natural-language annotations and an explicit project story into browsable code narratives for the Web and VS Code.",
+  "entryFlow": "code-narrative-pipeline",
+  "flows": [
+    {
+      "id": "code-narrative-pipeline",
+      "title": "Code narrative pipeline",
+      "summary": "Follow a source annotation from syntax-aware analysis to a live function-level narrative in the browser.",
+      "nodes": [
+        {
+          "id": "annotated-source",
+          "kind": "entry",
+          "label": "Annotated source code",
+          "summary": "Developers or AI agents place structured @shishan comments beside the behavior they explain.",
+          "source": {
+            "path": "packages/core/src/analyzer.ts",
+            "symbol": "analyzeTree"
+          }
+        },
+        {
+          "id": "syntax-analysis",
+          "kind": "process",
+          "label": "Analyze syntax and comments",
+          "summary": "Tree-sitter binds narrative comments to functions, branches, loops, calls, errors, and fine-grained details.",
+          "source": {
+            "path": "packages/core/src/analyzer.ts",
+            "symbol": "analyzeTree"
+          }
+        },
+        {
+          "id": "incremental-index",
+          "kind": "process",
+          "label": "Update the project index",
+          "summary": "Only changed files are parsed while stable analyses are reused and project coverage is recalculated.",
+          "source": {
+            "path": "packages/core/src/project-index.ts",
+            "symbol": "updatePaths"
+          }
+        },
+        {
+          "id": "live-server",
+          "kind": "process",
+          "label": "Publish snapshot and patches",
+          "summary": "The local server exposes the current snapshot and broadcasts bounded incremental changes.",
+          "source": {
+            "path": "apps/cli/src/server.ts",
+            "symbol": "createShiShanServer"
+          }
+        },
+        {
+          "id": "browser-store",
+          "kind": "process",
+          "label": "Apply live state",
+          "summary": "The Web client initializes from a snapshot and merges later project or file patches.",
+          "source": {
+            "path": "apps/web/src/store.ts",
+            "symbol": "applyProjectPatch"
+          }
+        },
+        {
+          "id": "function-story",
+          "kind": "output",
+          "label": "Explore function stories",
+          "summary": "Users inspect a function flow, its nested narrative steps, and the exact source lines behind each explanation.",
+          "source": {
+            "path": "apps/web/src/App.tsx"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "source-to-analysis",
+          "source": "annotated-source",
+          "target": "syntax-analysis",
+          "kind": "next"
+        },
+        {
+          "id": "analysis-to-index",
+          "source": "syntax-analysis",
+          "target": "incremental-index",
+          "kind": "data"
+        },
+        {
+          "id": "index-to-server",
+          "source": "incremental-index",
+          "target": "live-server",
+          "kind": "data"
+        },
+        {
+          "id": "server-to-store",
+          "source": "live-server",
+          "target": "browser-store",
+          "kind": "data"
+        },
+        {
+          "id": "store-to-function-story",
+          "source": "browser-store",
+          "target": "function-story",
+          "kind": "next"
+        }
+      ]
+    },
+    {
+      "id": "project-overview-delivery",
+      "title": "Project overview delivery",
+      "summary": "Follow the explicit whole-project story from its checked-in manifest to both visual interfaces and source navigation.",
+      "nodes": [
+        {
+          "id": "project-manifest",
+          "kind": "entry",
+          "label": "Project narrative manifest",
+          "summary": "Maintainers define a small set of intentional cross-file flows instead of deriving a noisy graph from every file."
+        },
+        {
+          "id": "manifest-validation",
+          "kind": "process",
+          "label": "Validate and bind sources",
+          "summary": "The core validates schema and topology, rejects unsafe paths, and resolves nodes to real files and symbols.",
+          "source": {
+            "path": "packages/core/src/project-narrative.ts",
+            "symbol": "loadProjectNarrative"
+          }
+        },
+        {
+          "id": "project-snapshot",
+          "kind": "process",
+          "label": "Attach story to project state",
+          "summary": "The project index carries the validated overview and its diagnostics in snapshots and live patches.",
+          "source": {
+            "path": "packages/core/src/project-index.ts",
+            "symbol": "snapshot"
+          }
+        },
+        {
+          "id": "web-overview",
+          "kind": "output",
+          "label": "Web Overview",
+          "summary": "The default browser tab renders each named flow as a Mermaid-like directed graph with readable narrative cards and bilingual UI.",
+          "source": {
+            "path": "apps/web/src/ProjectNarrativeGraph.tsx",
+            "symbol": "ProjectNarrativeGraph"
+          }
+        },
+        {
+          "id": "web-node-drilldown",
+          "kind": "output",
+          "label": "Progressive node details",
+          "summary": "A selected project node opens overview, nested function flow, and implementation-detail levels without duplicating narrative data.",
+          "source": {
+            "path": "apps/web/src/ProjectNodeInspector.tsx",
+            "symbol": "ProjectNodeInspector"
+          }
+        },
+        {
+          "id": "vscode-sidebar",
+          "kind": "output",
+          "label": "VS Code embedded preview",
+          "summary": "The installed extension renders card nodes and their progressive levels beside a compact outline, without requiring a browser.",
+          "source": {
+            "path": "apps/vscode/src/extension.ts",
+            "symbol": "activate"
+          }
+        },
+        {
+          "id": "source-drilldown",
+          "kind": "output",
+          "label": "Jump to implementation",
+          "summary": "Selecting a project node opens its bound symbol or source range, connecting the overview to implementation details.",
+          "source": {
+            "path": "apps/vscode/src/extension.ts",
+            "symbol": "openProjectSource"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "manifest-to-validation",
+          "source": "project-manifest",
+          "target": "manifest-validation",
+          "kind": "next"
+        },
+        {
+          "id": "validation-to-snapshot",
+          "source": "manifest-validation",
+          "target": "project-snapshot",
+          "kind": "data"
+        },
+        {
+          "id": "snapshot-to-web",
+          "source": "project-snapshot",
+          "target": "web-overview",
+          "kind": "data"
+        },
+        {
+          "id": "snapshot-to-sidebar",
+          "source": "project-snapshot",
+          "target": "vscode-sidebar",
+          "kind": "data"
+        },
+        {
+          "id": "web-to-node-drilldown",
+          "source": "web-overview",
+          "target": "web-node-drilldown",
+          "kind": "calls",
+          "label": "Open details"
+        },
+        {
+          "id": "drilldown-to-source",
+          "source": "web-node-drilldown",
+          "target": "source-drilldown",
+          "kind": "calls",
+          "label": "Open source"
+        },
+        {
+          "id": "sidebar-to-source",
+          "source": "vscode-sidebar",
+          "target": "source-drilldown",
+          "kind": "calls",
+          "label": "Open source"
+        }
+      ]
+    }
+  ]
+}

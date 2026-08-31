@@ -1,0 +1,178 @@
+{
+  "schemaVersion": "shishan/project-v1",
+  "title": "Polyglot order narrative",
+  "summary": "The same order-calculation intent expressed across the four primary ShiShan languages and two UI variants.",
+  "entryFlow": "order-calculation",
+  "flows": [
+    {
+      "id": "order-calculation",
+      "title": "Order calculation",
+      "summary": "Follow the shared business intent from raw prices to a finalized total.",
+      "nodes": [
+        {
+          "id": "receive-prices",
+          "kind": "entry",
+          "label": "Receive item prices",
+          "summary": "Accept the collection of raw item prices.",
+          "source": {
+            "path": "order.ts",
+            "symbol": "calculateOrder"
+          }
+        },
+        {
+          "id": "normalize-and-sum",
+          "kind": "process",
+          "label": "Normalize and sum",
+          "summary": "Copy the prices and calculate their subtotal.",
+          "source": {
+            "path": "order.py",
+            "symbol": "calculate_order"
+          }
+        },
+        {
+          "id": "discount-decision",
+          "kind": "decision",
+          "label": "Subtotal at least 100?",
+          "summary": "Choose whether the order qualifies for the ten-percent discount.",
+          "source": {
+            "path": "order.js",
+            "symbol": "calculateOrder"
+          }
+        },
+        {
+          "id": "apply-discount",
+          "kind": "process",
+          "label": "Apply discount",
+          "summary": "Reduce qualifying subtotals by ten percent.",
+          "source": {
+            "path": "order.cpp",
+            "symbol": "calculateOrder"
+          }
+        },
+        {
+          "id": "return-total",
+          "kind": "output",
+          "label": "Return finalized total",
+          "summary": "Expose the normalized, optionally discounted numeric total.",
+          "source": {
+            "path": "order.ts",
+            "symbol": "calculateOrder"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "prices-to-normalize",
+          "source": "receive-prices",
+          "target": "normalize-and-sum",
+          "kind": "next"
+        },
+        {
+          "id": "normalize-to-decision",
+          "source": "normalize-and-sum",
+          "target": "discount-decision",
+          "kind": "next"
+        },
+        {
+          "id": "qualified-discount",
+          "source": "discount-decision",
+          "target": "apply-discount",
+          "kind": "true",
+          "label": "Yes"
+        },
+        {
+          "id": "skip-discount",
+          "source": "discount-decision",
+          "target": "return-total",
+          "kind": "false",
+          "label": "No"
+        },
+        {
+          "id": "discount-to-output",
+          "source": "apply-discount",
+          "target": "return-total",
+          "kind": "next"
+        }
+      ]
+    },
+    {
+      "id": "language-surfaces",
+      "title": "Language surfaces",
+      "summary": "Show which supported source forms feed the shared narrative model.",
+      "nodes": [
+        {
+          "id": "python-source",
+          "kind": "module",
+          "label": "Python",
+          "summary": "Indentation-sensitive functions, branches, loops, and details.",
+          "source": {
+            "path": "order.py",
+            "symbol": "calculate_order"
+          }
+        },
+        {
+          "id": "cpp-source",
+          "kind": "module",
+          "label": "C++",
+          "summary": "Brace-based functions and control-flow annotations.",
+          "source": {
+            "path": "order.cpp",
+            "symbol": "calculateOrder"
+          }
+        },
+        {
+          "id": "typescript-source",
+          "kind": "module",
+          "label": "TypeScript / TSX",
+          "summary": "Typed functions and UI components share the same IR.",
+          "source": {
+            "path": "order.ts",
+            "symbol": "calculateOrder"
+          }
+        },
+        {
+          "id": "javascript-source",
+          "kind": "module",
+          "label": "JavaScript / JSX",
+          "summary": "JavaScript functions and UI components share the same IR.",
+          "source": {
+            "path": "order.js",
+            "symbol": "calculateOrder"
+          }
+        },
+        {
+          "id": "shared-ir",
+          "kind": "output",
+          "label": "Shared narrative graph",
+          "summary": "All language adapters produce one versioned visualization model."
+        }
+      ],
+      "edges": [
+        {
+          "id": "python-to-ir",
+          "source": "python-source",
+          "target": "shared-ir",
+          "kind": "data"
+        },
+        {
+          "id": "cpp-to-ir",
+          "source": "cpp-source",
+          "target": "shared-ir",
+          "kind": "data"
+        },
+        {
+          "id": "typescript-to-ir",
+          "source": "typescript-source",
+          "target": "shared-ir",
+          "kind": "data"
+        },
+        {
+          "id": "javascript-to-ir",
+          "source": "javascript-source",
+          "target": "shared-ir",
+          "kind": "data"
+        }
+      ]
+    }
+  ]
+}

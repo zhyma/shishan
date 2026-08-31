@@ -1,0 +1,287 @@
+[
+  {
+    "path": "order.cpp",
+    "language": "cpp",
+    "coverage": {
+      "totalFunctions": 1,
+      "narratedFunctions": 1,
+      "percent": 100,
+      "flowNodes": 5,
+      "details": 1
+    },
+    "functions": [
+      {
+        "localId": "calculate-order",
+        "name": "calculateOrder",
+        "kind": "function",
+        "children": [
+          {
+            "localId": "accumulate-prices",
+            "kind": "loop",
+            "children": [
+              {
+                "localId": "add-price",
+                "kind": "step",
+                "children": [],
+                "details": []
+              }
+            ],
+            "details": []
+          },
+          {
+            "localId": "apply-discount",
+            "kind": "branch",
+            "children": [],
+            "details": []
+          },
+          {
+            "localId": "return-total",
+            "kind": "step",
+            "children": [],
+            "details": []
+          }
+        ],
+        "details": [
+          {
+            "localId": "initialize-total",
+            "coveredStatements": 2
+          }
+        ]
+      }
+    ],
+    "diagnosticCodes": []
+  },
+  {
+    "path": "order.js",
+    "language": "javascript",
+    "coverage": {
+      "totalFunctions": 1,
+      "narratedFunctions": 1,
+      "percent": 100,
+      "flowNodes": 4,
+      "details": 1
+    },
+    "functions": [
+      {
+        "localId": "calculate-order",
+        "name": "calculateOrder",
+        "kind": "function",
+        "children": [
+          {
+            "localId": "audit-prices",
+            "kind": "loop",
+            "children": [
+              {
+                "localId": "record-price",
+                "kind": "step",
+                "children": [],
+                "details": []
+              }
+            ],
+            "details": []
+          },
+          {
+            "localId": "return-total",
+            "kind": "step",
+            "children": [],
+            "details": []
+          }
+        ],
+        "details": [
+          {
+            "localId": "normalize-prices",
+            "coveredStatements": 2
+          }
+        ]
+      }
+    ],
+    "diagnosticCodes": []
+  },
+  {
+    "path": "order.py",
+    "language": "python",
+    "coverage": {
+      "totalFunctions": 1,
+      "narratedFunctions": 1,
+      "percent": 100,
+      "flowNodes": 6,
+      "details": 1
+    },
+    "functions": [
+      {
+        "localId": "calculate-order",
+        "name": "calculate_order",
+        "kind": "function",
+        "children": [
+          {
+            "localId": "apply-discount",
+            "kind": "branch",
+            "children": [
+              {
+                "localId": "reduce-total",
+                "kind": "step",
+                "children": [],
+                "details": []
+              }
+            ],
+            "details": []
+          },
+          {
+            "localId": "audit-prices",
+            "kind": "loop",
+            "children": [
+              {
+                "localId": "record-price",
+                "kind": "step",
+                "children": [],
+                "details": []
+              }
+            ],
+            "details": []
+          },
+          {
+            "localId": "return-total",
+            "kind": "step",
+            "children": [],
+            "details": []
+          }
+        ],
+        "details": [
+          {
+            "localId": "normalize-prices",
+            "coveredStatements": 2
+          }
+        ]
+      }
+    ],
+    "diagnosticCodes": []
+  },
+  {
+    "path": "order.ts",
+    "language": "typescript",
+    "coverage": {
+      "totalFunctions": 1,
+      "narratedFunctions": 1,
+      "percent": 100,
+      "flowNodes": 4,
+      "details": 1
+    },
+    "functions": [
+      {
+        "localId": "calculate-order",
+        "name": "calculateOrder",
+        "kind": "function",
+        "children": [
+          {
+            "localId": "apply-discount",
+            "kind": "branch",
+            "children": [
+              {
+                "localId": "reduce-total",
+                "kind": "step",
+                "children": [],
+                "details": []
+              }
+            ],
+            "details": []
+          },
+          {
+            "localId": "return-total",
+            "kind": "step",
+            "children": [],
+            "details": []
+          }
+        ],
+        "details": [
+          {
+            "localId": "normalize-prices",
+            "coveredStatements": 2
+          }
+        ]
+      }
+    ],
+    "diagnosticCodes": []
+  },
+  {
+    "path": "widget.jsx",
+    "language": "jsx",
+    "coverage": {
+      "totalFunctions": 1,
+      "narratedFunctions": 1,
+      "percent": 100,
+      "flowNodes": 4,
+      "details": 0
+    },
+    "functions": [
+      {
+        "localId": "status-widget",
+        "name": "StatusWidget",
+        "kind": "function",
+        "children": [
+          {
+            "localId": "choose-label",
+            "kind": "branch",
+            "children": [
+              {
+                "localId": "render-ready",
+                "kind": "step",
+                "children": [],
+                "details": []
+              }
+            ],
+            "details": []
+          },
+          {
+            "localId": "render-pending",
+            "kind": "step",
+            "children": [],
+            "details": []
+          }
+        ],
+        "details": []
+      }
+    ],
+    "diagnosticCodes": []
+  },
+  {
+    "path": "widget.tsx",
+    "language": "tsx",
+    "coverage": {
+      "totalFunctions": 1,
+      "narratedFunctions": 1,
+      "percent": 100,
+      "flowNodes": 4,
+      "details": 0
+    },
+    "functions": [
+      {
+        "localId": "status-widget",
+        "name": "StatusWidget",
+        "kind": "function",
+        "children": [
+          {
+            "localId": "choose-label",
+            "kind": "branch",
+            "children": [
+              {
+                "localId": "render-ready",
+                "kind": "step",
+                "children": [],
+                "details": []
+              }
+            ],
+            "details": []
+          },
+          {
+            "localId": "render-pending",
+            "kind": "step",
+            "children": [],
+            "details": []
+          }
+        ],
+        "details": []
+      }
+    ],
+    "diagnosticCodes": []
+  }
+]

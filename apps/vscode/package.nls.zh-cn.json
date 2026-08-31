@@ -1,0 +1,20 @@
+{
+  "extension.displayName": "ShiShan 代码叙事",
+  "extension.description": "在 VS Code 内或网页总览中浏览项目级和函数级代码叙事。",
+  "container.title": "树山",
+  "view.preview": "叙事节点",
+  "view.outline": "项目大纲",
+  "view.welcome": "当前工作区没有 `.shishan/project.json`。\n[打开网页总览](command:shishan.openNarrative)",
+  "command.openNarrative": "ShiShan：打开项目叙事",
+  "command.checkNarrative": "ShiShan：检查叙事新鲜度",
+  "command.refreshNarrative": "ShiShan：刷新项目叙事",
+  "command.openSource": "ShiShan：打开项目叙事源码",
+  "configuration.title": "ShiShan",
+  "configuration.language.description": "ShiShan 侧边栏和网页总览使用的界面语言。",
+  "configuration.language.auto": "跟随 VS Code 显示语言。",
+  "configuration.language.en": "使用英文。",
+  "configuration.language.zh": "使用中文。",
+  "configuration.cliPath.description": "apps/cli/dist/main.js 或已安装 ShiShan CLI 入口的路径；相对路径从工作区根目录解析。",
+  "configuration.port.description": "本地 ShiShan 网页服务器使用的回环端口。",
+  "configuration.freshnessBase.description": "新鲜度检查使用的 Git 修订版本。"
+}

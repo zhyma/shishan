@@ -1,6 +1,12 @@
 node_modules/
 out/
 dist/
+coverage/
+.shishan/*
+!.shishan/project.json
+**/.shishan/*
+!**/.shishan/project.json
+*.tsbuildinfo
 *.vsix
 .vscode-test/
 .DS_Store

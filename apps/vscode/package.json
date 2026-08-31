@@ -1,0 +1,159 @@
+{
+  "name": "shishan-vscode",
+  "displayName": "%extension.displayName%",
+  "description": "%extension.description%",
+  "version": "0.3.0",
+  "private": true,
+  "publisher": "zhyma",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zhyma/shishan.git"
+  },
+  "engines": {
+    "vscode": ">=1.85.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onCommand:shishan.openNarrative",
+    "onCommand:shishan.checkNarrative",
+    "onCommand:shishan.refreshProjectNarrative",
+    "onCommand:shishan.openProjectSource",
+    "onView:shishan.projectNarrative",
+    "onView:shishan.narrativePreview",
+    "workspaceContains:.shishan/project.json",
+    "onUri"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "shishan",
+          "title": "%container.title%",
+          "icon": "media/shishan.svg"
+        }
+      ]
+    },
+    "views": {
+      "shishan": [
+        {
+          "type": "webview",
+          "id": "shishan.narrativePreview",
+          "name": "%view.preview%",
+          "icon": "media/shishan.svg"
+        },
+        {
+          "id": "shishan.projectNarrative",
+          "name": "%view.outline%",
+          "icon": "media/shishan.svg"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "shishan.projectNarrative",
+        "contents": "%view.welcome%"
+      }
+    ],
+    "commands": [
+      {
+        "command": "shishan.openNarrative",
+        "title": "%command.openNarrative%",
+        "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "shishan.checkNarrative",
+        "title": "%command.checkNarrative%",
+        "icon": "$(pass)"
+      },
+      {
+        "command": "shishan.refreshProjectNarrative",
+        "title": "%command.refreshNarrative%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "shishan.openProjectSource",
+        "title": "%command.openSource%"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "shishan.openNarrative",
+          "when": "view == shishan.projectNarrative",
+          "group": "navigation@1"
+        },
+        {
+          "command": "shishan.refreshProjectNarrative",
+          "when": "view == shishan.projectNarrative",
+          "group": "navigation@2"
+        },
+        {
+          "command": "shishan.checkNarrative",
+          "when": "view == shishan.projectNarrative",
+          "group": "navigation@3"
+        },
+        {
+          "command": "shishan.openNarrative",
+          "when": "view == shishan.narrativePreview",
+          "group": "navigation@1"
+        },
+        {
+          "command": "shishan.refreshProjectNarrative",
+          "when": "view == shishan.narrativePreview",
+          "group": "navigation@2"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "%configuration.title%",
+      "properties": {
+        "shishan.language": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "en",
+            "zh-cn"
+          ],
+          "enumDescriptions": [
+            "%configuration.language.auto%",
+            "%configuration.language.en%",
+            "%configuration.language.zh%"
+          ],
+          "description": "%configuration.language.description%"
+        },
+        "shishan.cliPath": {
+          "type": "string",
+          "default": "",
+          "description": "%configuration.cliPath.description%"
+        },
+        "shishan.port": {
+          "type": "integer",
+          "default": 4173,
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "%configuration.port.description%"
+        },
+        "shishan.freshnessBase": {
+          "type": "string",
+          "default": "HEAD",
+          "description": "%configuration.freshnessBase.description%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "package": "npm run build && vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/vscode": "1.85.0",
+    "@vscode/vsce": "^3.9.2"
+  }
+}
