@@ -1,8 +1,8 @@
 {
   "name": "shishan-vscode",
-  "displayName": "ShiShan Code Narrative",
-  "description": "Browse project-level code narratives, open the Web overview, and navigate back to source.",
-  "version": "0.2.0",
+  "displayName": "%extension.displayName%",
+  "description": "%extension.description%",
+  "version": "0.3.0",
   "private": true,
   "publisher": "zhyma",
   "license": "MIT",
@@ -24,6 +24,7 @@
     "onCommand:shishan.refreshProjectNarrative",
     "onCommand:shishan.openProjectSource",
     "onView:shishan.projectNarrative",
+    "onView:shishan.narrativePreview",
     "workspaceContains:.shishan/project.json",
     "onUri"
   ],
@@ -32,7 +33,7 @@
       "activitybar": [
         {
           "id": "shishan",
-          "title": "ShiShan",
+          "title": "%container.title%",
           "icon": "media/shishan.svg"
         }
       ]
@@ -40,8 +41,14 @@
     "views": {
       "shishan": [
         {
+          "type": "webview",
+          "id": "shishan.narrativePreview",
+          "name": "%view.preview%",
+          "icon": "media/shishan.svg"
+        },
+        {
           "id": "shishan.projectNarrative",
-          "name": "Project Narrative",
+          "name": "%view.outline%",
           "icon": "media/shishan.svg"
         }
       ]
@@ -49,28 +56,28 @@
     "viewsWelcome": [
       {
         "view": "shishan.projectNarrative",
-        "contents": "No `.shishan/project.json` is available in this workspace.\n[Open Web Overview](command:shishan.openNarrative)"
+        "contents": "%view.welcome%"
       }
     ],
     "commands": [
       {
         "command": "shishan.openNarrative",
-        "title": "ShiShan: Open Project Narrative",
+        "title": "%command.openNarrative%",
         "icon": "$(type-hierarchy)"
       },
       {
         "command": "shishan.checkNarrative",
-        "title": "ShiShan: Check Narrative Freshness",
+        "title": "%command.checkNarrative%",
         "icon": "$(pass)"
       },
       {
         "command": "shishan.refreshProjectNarrative",
-        "title": "ShiShan: Refresh Project Narrative",
+        "title": "%command.refreshNarrative%",
         "icon": "$(refresh)"
       },
       {
         "command": "shishan.openProjectSource",
-        "title": "ShiShan: Open Project Narrative Source"
+        "title": "%command.openSource%"
       }
     ],
     "menus": {
@@ -89,28 +96,53 @@
           "command": "shishan.checkNarrative",
           "when": "view == shishan.projectNarrative",
           "group": "navigation@3"
+        },
+        {
+          "command": "shishan.openNarrative",
+          "when": "view == shishan.narrativePreview",
+          "group": "navigation@1"
+        },
+        {
+          "command": "shishan.refreshProjectNarrative",
+          "when": "view == shishan.narrativePreview",
+          "group": "navigation@2"
         }
       ]
     },
     "configuration": {
-      "title": "ShiShan",
+      "title": "%configuration.title%",
       "properties": {
+        "shishan.language": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "en",
+            "zh-cn"
+          ],
+          "enumDescriptions": [
+            "%configuration.language.auto%",
+            "%configuration.language.en%",
+            "%configuration.language.zh%"
+          ],
+          "description": "%configuration.language.description%"
+        },
         "shishan.cliPath": {
           "type": "string",
           "default": "",
-          "description": "Path to apps/cli/dist/main.js or an installed ShiShan CLI entry point. Relative paths resolve from the workspace root."
+          "description": "%configuration.cliPath.description%"
         },
         "shishan.port": {
           "type": "integer",
           "default": 4173,
           "minimum": 1,
           "maximum": 65535,
-          "description": "Loopback port for the local ShiShan Web server."
+          "description": "%configuration.port.description%"
         },
         "shishan.freshnessBase": {
           "type": "string",
           "default": "HEAD",
-          "description": "Git revision used for freshness checks."
+          "description": "%configuration.freshnessBase.description%"
         }
       }
     }

@@ -1,0 +1,20 @@
+{
+  "extension.displayName": "ShiShan Code Narrative",
+  "extension.description": "Explore project and function-level code narratives directly in VS Code or in the Web overview.",
+  "container.title": "ShiShan",
+  "view.preview": "Narrative Preview",
+  "view.outline": "Project Outline",
+  "view.welcome": "No `.shishan/project.json` is available in this workspace.\n[Open Web Overview](command:shishan.openNarrative)",
+  "command.openNarrative": "ShiShan: Open Project Narrative",
+  "command.checkNarrative": "ShiShan: Check Narrative Freshness",
+  "command.refreshNarrative": "ShiShan: Refresh Project Narrative",
+  "command.openSource": "ShiShan: Open Project Narrative Source",
+  "configuration.title": "ShiShan",
+  "configuration.language.description": "Language used by the ShiShan sidebar and opened Web overview.",
+  "configuration.language.auto": "Follow the VS Code display language.",
+  "configuration.language.en": "Use English.",
+  "configuration.language.zh": "使用中文。",
+  "configuration.cliPath.description": "Path to apps/cli/dist/main.js or an installed ShiShan CLI entry point. Relative paths resolve from the workspace root.",
+  "configuration.port.description": "Loopback port for the local ShiShan Web server.",
+  "configuration.freshnessBase.description": "Git revision used for freshness checks."
+}

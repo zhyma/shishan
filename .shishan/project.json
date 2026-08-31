@@ -137,17 +137,27 @@
           "id": "web-overview",
           "kind": "output",
           "label": "Web Overview",
-          "summary": "The default browser tab renders each named flow as a Mermaid-like directed graph with readable narrative cards.",
+          "summary": "The default browser tab renders each named flow as a Mermaid-like directed graph with readable narrative cards and bilingual UI.",
           "source": {
             "path": "apps/web/src/ProjectNarrativeGraph.tsx",
             "symbol": "ProjectNarrativeGraph"
           }
         },
         {
+          "id": "web-node-drilldown",
+          "kind": "output",
+          "label": "Progressive node details",
+          "summary": "A selected project node opens overview, nested function flow, and implementation-detail levels without duplicating narrative data.",
+          "source": {
+            "path": "apps/web/src/ProjectNodeInspector.tsx",
+            "symbol": "ProjectNodeInspector"
+          }
+        },
+        {
           "id": "vscode-sidebar",
           "kind": "output",
-          "label": "VS Code Activity Bar",
-          "summary": "The installed extension exposes the same flows in a dedicated ShiShan sidebar without requiring the Web view first.",
+          "label": "VS Code embedded preview",
+          "summary": "The installed extension renders card nodes and their progressive levels beside a compact outline, without requiring a browser.",
           "source": {
             "path": "apps/vscode/src/extension.ts",
             "symbol": "activate"
@@ -190,8 +200,15 @@
           "kind": "data"
         },
         {
-          "id": "web-to-source",
+          "id": "web-to-node-drilldown",
           "source": "web-overview",
+          "target": "web-node-drilldown",
+          "kind": "calls",
+          "label": "Open details"
+        },
+        {
+          "id": "drilldown-to-source",
+          "source": "web-node-drilldown",
           "target": "source-drilldown",
           "kind": "calls",
           "label": "Open source"

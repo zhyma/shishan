@@ -7,8 +7,8 @@
 | `packages/protocol` | 注释 parser、项目叙事类型、TypeScript IR、两套 JSON Schema | 读取项目文件 |
 | `packages/core` | 语言识别、Tree-sitter、AST/项目符号绑定、项目索引、Git freshness | HTTP 和 UI |
 | `apps/cli` | CLI、Fastify、SSE、Chokidar、静态站点导出 | 执行被分析代码 |
-| `apps/web` | 默认项目 Overview、函数流程图、源码/诊断视图、live/static 启动 | 扫描本机文件系统 |
-| `apps/vscode` | Activity Bar 项目树、Linux CLI 子进程生命周期、受限源码 URI 跳转 | 复制 parser 或 Web UI |
+| `apps/web` | 默认项目 Overview、三级节点详情、函数流程图、中英文 UI、源码/诊断视图、live/static 启动 | 扫描本机文件系统 |
+| `apps/vscode` | Activity Bar 卡片预览/项目树、惰性 CLI snapshot、Linux 子进程生命周期、受限源码跳转 | 复制 parser 或强制打开浏览器 |
 | `skills/shishan-author` | 约束 AI 创建和维护叙事 | 代替 parser 验证 |
 
 ## 2. 首次扫描
@@ -87,7 +87,7 @@ sequenceDiagram
 - AST-backed 函数叙事解释一个函数内部的真实步骤、分支、循环、调用和错误边界；
 - `.shishan/project.json` 只编排少量命名的跨模块阅读路径，例如 request lifecycle 或 runtime architecture。
 
-Core 先用 Draft 2020-12 Schema 限制字段和图规模，再验证 flow/node/edge ID 与端点，最后把可选 `{path, symbol}` 绑定到 `FileAnalysis.symbols`。路径/拓扑错误会拒绝整张项目图；单个符号改名则产生 warning，保留其余流程以便修复。Web 首屏选择 `entryFlow`：宽窗口用 LR Dagre 显示整体结构，760 px 以下切为 TB 并以 90% 缩放把入口放在首屏，避免 `fitView` 把卡片缩成不可读缩略图；点击节点可显示源码，绑定到 narrative ID 的节点可继续进入函数图。
+Core 先用 Draft 2020-12 Schema 限制字段和图规模，再验证 flow/node/edge ID 与端点，最后把可选 `{path, symbol}` 绑定到 `FileAnalysis.symbols`。路径/拓扑错误会拒绝整张项目图；单个符号改名则产生 warning，保留其余流程以便修复。Web 首屏选择 `entryFlow`：宽窗口用 LR Dagre 显示整体结构，760 px 以下切为 TB 并以 90% 缩放把入口放在首屏，避免 `fitView` 把卡片缩成不可读缩略图。节点详情复用同一个 snapshot 中的 `narrativeId`，按“项目概览 → 函数流程 → 实现细节”渐进展示；不重新解析、不复制说明，也不新增协议层。界面标签可在中英文间切换，项目清单和源码注释中的作者正文保持原样。
 
 ## 5. Git 叙事过期检测
 
@@ -175,7 +175,9 @@ Web 启动时优先读取 `globalThis.__SHISHAN_STATIC__`；存在时不请求 `
 
 ## 9. VS Code 与批量注释边界
 
-VS Code 扩展不嵌入第二套解析器。可安装 VSIX 贡献独立 Activity Bar 容器和 `Project Narrative` TreeView：树只对有界 JSON 做防崩溃读取，Core 的 Schema/拓扑校验仍是权威验证；节点源码打开再次限制在 workspace 内。`Open Project Narrative` 通过参数数组启动现有 CLI loopback server，再交给 VS Code Simple Browser；`Check Narrative Freshness` 同样直接运行 CLI strict check。Web 的编辑器链接使用 `vscode://zhyma.shishan-vscode/open`，URI Handler 重新做 workspace-relative 归一化、存在性检查和一基/零基坐标转换，不接受任意绝对文件。
+VS Code 扩展不嵌入第二套解析器。可安装 VSIX 贡献独立 Activity Bar 容器、卡片式 `Narrative Preview` Webview 和紧凑 `Project Outline` TreeView。两者先只读取受 256 KiB 限制的 inert manifest，因此打开侧边栏无需浏览器或服务；用户展开函数/实现层时，扩展才启动或复用 CLI，获取受 64 MiB 限制的 snapshot，并把所选节点的嵌套叙事裁成最多 300 项的展示模型。Webview 使用禁止外部资源的 CSP，所有仓库文本通过 `textContent` 写入；消息中的 flow/node/detail ID 会在 extension host 再次映射，不能携带任意文件路径。Core 的 Schema/拓扑校验仍是权威验证，所有源码打开再次限制在 workspace 内。
+
+`Open Project Narrative` 通过参数数组启动现有 CLI loopback server，再交给 VS Code Simple Browser；`Check Narrative Freshness` 同样直接运行 CLI strict check。Web 的编辑器链接使用 `vscode://zhyma.shishan-vscode/open`，URI Handler 重新做 workspace-relative 归一化、存在性检查和一基/零基坐标转换，不接受任意绝对文件。`shishan.language` 只改变扩展/Web 的界面标签，不翻译或改写版本控制中的叙事正文。
 
 批量注释拆为两个显式阶段：
 
@@ -197,6 +199,7 @@ VS Code 扩展不嵌入第二套解析器。可安装 VSIX 贡献独立 Activity
 - Git 通过 `execFile` 参数数组调用，不经过 shell；基线 revision 在启动时固定；
 - 静态导出不覆盖已有目录，默认不包含目标仓库源码。
 - VS Code URI 只打开当前 workspace 内已存在文件；扩展和 CLI 均不经过 shell；
+- VS Code Webview 禁止网络/外部资源，仓库文本不用 `innerHTML`；详情消息只能引用当前 manifest 和已加载 bounded model 中的 ID；
 - annotation plan 路径和其中的 source path 必须留在项目根目录，draft/skip 永不写入，summary 和字段不能注入换行。
 - 项目清单按惰性 JSON 读取，不执行表达式；拒绝符号链接、绝对/穿越路径、超限图和不存在的边端点。
 

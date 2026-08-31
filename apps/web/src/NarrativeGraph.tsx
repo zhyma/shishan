@@ -23,6 +23,7 @@ import {
   resolveLargeGraphLayout,
   type GraphPosition
 } from './graph-layout.js';
+import { useI18n, type MessageKey } from './i18n.js';
 
 interface NarrativeGraphProps {
   narrative: NarrativeNode;
@@ -34,37 +35,41 @@ interface NarrativeCardProps {
   onSelectSource(range: SourceRange): void;
 }
 
-const kindLabels: Record<NarrativeNode['kind'], string> = {
-  function: 'Function',
-  step: 'Step',
-  branch: 'Decision',
-  loop: 'Loop',
-  call: 'Call',
-  error: 'Error boundary',
-  async: 'Async wait'
+const kindLabelKeys: Record<NarrativeNode['kind'], MessageKey> = {
+  function: 'narrative.kind.function',
+  step: 'narrative.kind.step',
+  branch: 'narrative.kind.branch',
+  loop: 'narrative.kind.loop',
+  call: 'narrative.kind.call',
+  error: 'narrative.kind.error',
+  async: 'narrative.kind.async'
 };
 
 function NarrativeCard({
   narrative,
   onSelectSource
 }: NarrativeCardProps) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const semanticFields = [
-    ['If', narrative.fields.condition],
-    ['Calls', narrative.fields.target],
-    ['Failure', narrative.fields.failure],
-    ['Resume', narrative.fields.resume]
+    ['field.condition', narrative.fields.condition],
+    ['field.target', narrative.fields.target],
+    ['field.failure', narrative.fields.failure],
+    ['field.resume', narrative.fields.resume]
   ]
-    .flatMap(([label, values]) =>
+    .flatMap(([key, values]) =>
       Array.isArray(values)
-        ? values.slice(0, 2).map((value) => ({ label, value }))
+        ? values.slice(0, 2).map((value) => ({
+            label: t(key as MessageKey),
+            value
+          }))
         : []
     );
 
   return (
     <article className={'narrative-card kind-' + narrative.kind}>
       <div className="card-kicker">
-        <span>{kindLabels[narrative.kind]}</span>
+        <span>{t(kindLabelKeys[narrative.kind])}</span>
         <button
           className="source-link"
           type="button"
@@ -74,7 +79,7 @@ function NarrativeCard({
         </button>
       </div>
       <h3>{narrative.name ?? narrative.localId}</h3>
-      <p>{narrative.summary || 'No summary provided.'}</p>
+      <p>{narrative.summary || t('summary.missing')}</p>
       {semanticFields.length > 0 ? (
         <dl className="semantic-fields">
           {semanticFields.map((field, index) => (
@@ -94,7 +99,11 @@ function NarrativeCard({
             onClick={() => setExpanded((value) => !value)}
           >
             <span>{narrative.details.length}</span>
-            implementation {narrative.details.length === 1 ? 'note' : 'notes'}
+            {t(
+              narrative.details.length === 1
+                ? 'details.note'
+                : 'details.notes'
+            )}
           </button>
           {expanded ? (
             <ul>
@@ -116,19 +125,23 @@ function NarrativeCard({
   );
 }
 
-function edgeLabel(kind: NarrativeEdge['kind'], label?: string): string {
+function edgeLabel(
+  kind: NarrativeEdge['kind'],
+  t: (key: MessageKey) => string,
+  label?: string
+): string {
   if (label) {
     return label;
   }
   switch (kind) {
     case 'true':
-      return 'Yes';
+      return t('edge.yes');
     case 'false':
-      return 'Otherwise';
+      return t('edge.otherwise');
     case 'body':
-      return 'Repeat';
+      return t('edge.repeat');
     case 'exit':
-      return 'Continue';
+      return t('edge.continue');
     default:
       return '';
   }
@@ -138,6 +151,7 @@ export const NarrativeGraph = memo(function NarrativeGraph({
   narrative,
   onSelectSource
 }: NarrativeGraphProps) {
+  const { t } = useI18n();
   const model = useMemo(() => prepareGraph(narrative), [narrative]);
   const fallbackPositions = useMemo(() => layoutWithDagre(model), [model]);
   const [largePositions, setLargePositions] = useState<
@@ -202,7 +216,7 @@ export const NarrativeGraph = memo(function NarrativeGraph({
         id: item.id,
         source: item.source,
         target: item.target,
-        label: edgeLabel(item.kind, item.label),
+        label: edgeLabel(item.kind, t, item.label),
         type: 'smoothstep',
         animated: item.kind === 'body',
         className: 'edge-' + item.kind,
@@ -213,7 +227,7 @@ export const NarrativeGraph = memo(function NarrativeGraph({
         },
         style: { strokeWidth: 1.8 }
       })),
-    [model.edges]
+    [model.edges, t]
   );
 
   return (
@@ -250,14 +264,14 @@ export const NarrativeGraph = memo(function NarrativeGraph({
         <Controls showInteractive={false} />
       </ReactFlow>
       {layoutStatus === 'loading' ? (
-        <div className="graph-limit">Optimizing large graph layout…</div>
+        <div className="graph-limit">{t('graph.optimizing')}</div>
       ) : null}
       {layoutStatus === 'fallback' ? (
-        <div className="graph-limit">ELK timed out; using safe fallback layout.</div>
+        <div className="graph-limit">{t('graph.fallback')}</div>
       ) : null}
       {model.truncated ? (
         <div className="graph-limit graph-limit-truncated">
-          Showing the first {MAX_GRAPH_NODES} narrative nodes.
+          {t('graph.truncated', { count: MAX_GRAPH_NODES })}
         </div>
       ) : null}
     </div>

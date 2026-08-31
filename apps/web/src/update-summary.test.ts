@@ -13,4 +13,14 @@ describe('updatePathSummary', () => {
       'src/a.ts, src/b.ts +1 more'
     );
   });
+
+  it('renders Chinese update labels without changing source paths', () => {
+    expect(updatePathSummary([], 2, 'zh-CN')).toBe('复用缓存文件');
+    expect(updatePathSummary(['src/入口.ts'], 1, 'zh-CN')).toBe(
+      '初始快照 · 1 个文件'
+    );
+    expect(
+      updatePathSummary(['src/a.ts', 'src/b.ts', 'src/c.ts'], 2, 'zh-CN')
+    ).toBe('src/a.ts, src/b.ts，另有 1 个');
+  });
 });

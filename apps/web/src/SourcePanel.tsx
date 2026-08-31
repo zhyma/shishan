@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { SourceRange } from '@shishan/protocol';
 import { vscodeSourceUrl } from './editor-link.js';
+import { useI18n } from './i18n.js';
 
 interface SourcePanelProps {
   range?: SourceRange;
@@ -17,6 +18,7 @@ export function SourcePanel({
   staticSources,
   staticMode = false
 }: SourcePanelProps) {
+  const { t } = useI18n();
   const [source, setSource] = useState('');
   const [error, setError] = useState('');
 
@@ -32,9 +34,7 @@ export function SourcePanel({
     if (staticMode) {
       const staticSource = staticSources?.[range.path];
       if (staticSource === undefined) {
-        setError(
-          'Source was not included in this static export. Re-export with --include-source to enable source navigation.'
-        );
+        setError(t('source.notIncluded'));
       } else {
         setSource(staticSource);
       }
@@ -45,7 +45,7 @@ export function SourcePanel({
     })
       .then(async (response) => {
         if (!response.ok) {
-          throw new Error('Could not load source (' + response.status + ').');
+          throw new Error(t('source.loadFailed', { status: response.status }));
         }
         return response.text();
       })
@@ -56,7 +56,7 @@ export function SourcePanel({
         }
       });
     return () => controller.abort();
-  }, [range?.path, staticMode, staticSources, version]);
+  }, [range?.path, staticMode, staticSources, t, version]);
 
   const visible = useMemo(() => {
     if (!range || !source) {
@@ -81,7 +81,7 @@ export function SourcePanel({
   if (!range) {
     return (
       <aside className="source-panel source-empty">
-        Select a narrative node to inspect its source.
+        {t('source.empty')}
       </aside>
     );
   }
@@ -90,12 +90,12 @@ export function SourcePanel({
     <aside className="source-panel">
       <header>
         <div>
-          <span className="eyebrow">Source</span>
+          <span className="eyebrow">{t('source.title')}</span>
           <strong>{range.path}</strong>
         </div>
         <div className="source-actions">
           {!staticMode ? (
-            <a href={vscodeSourceUrl(range)}>Open in VS Code</a>
+            <a href={vscodeSourceUrl(range)}>{t('source.openVsCode')}</a>
           ) : null}
           <span>
             L{range.start.line + 1}–{range.end.line + 1}
@@ -104,11 +104,11 @@ export function SourcePanel({
       </header>
       {error ? <p className="source-error">{error}</p> : null}
       {!error && visible.lines.length === 0 ? (
-        <p className="source-loading">Loading source…</p>
+        <p className="source-loading">{t('source.loading')}</p>
       ) : null}
       {visible.truncated ? (
         <p className="source-limit">
-          Showing the first {MAX_VISIBLE_LINES} lines of this range.
+          {t('source.limit', { count: MAX_VISIBLE_LINES })}
         </p>
       ) : null}
       <pre>

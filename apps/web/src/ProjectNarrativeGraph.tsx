@@ -25,27 +25,31 @@ import {
   PROJECT_NODE_WIDTH,
   layoutProjectFlow
 } from './project-graph-layout.js';
+import { useI18n, type MessageKey } from './i18n.js';
 
 interface ProjectNarrativeGraphProps {
   flow: ProjectNarrativeFlow;
+  selectedNodeId?: string;
+  onInspect(node: ProjectNarrativeNode): void;
   onSelectSource(node: ProjectNarrativeNode): void;
   onOpenFunction(node: ProjectNarrativeNode): void;
 }
 
 interface ProjectCardProps {
   node: ProjectNarrativeNode;
+  onInspect(node: ProjectNarrativeNode): void;
   onSelectSource(node: ProjectNarrativeNode): void;
   onOpenFunction(node: ProjectNarrativeNode): void;
 }
 
-const kindLabels: Record<ProjectNarrativeNode['kind'], string> = {
-  entry: 'Entry',
-  module: 'Module',
-  process: 'Process',
-  decision: 'Decision',
-  error: 'Error path',
-  output: 'Output',
-  external: 'External system'
+const kindLabelKeys: Record<ProjectNarrativeNode['kind'], MessageKey> = {
+  entry: 'node.kind.entry',
+  module: 'node.kind.module',
+  process: 'node.kind.process',
+  decision: 'node.kind.decision',
+  error: 'node.kind.error',
+  output: 'node.kind.output',
+  external: 'node.kind.external'
 };
 
 const NARROW_GRAPH_QUERY = '(max-width: 760px)';
@@ -73,48 +77,55 @@ function useNarrowProjectGraph(): boolean {
 
 function ProjectCard({
   node,
+  onInspect,
   onSelectSource,
   onOpenFunction
 }: ProjectCardProps) {
+  const { t } = useI18n();
   return (
     <article className={'project-card project-kind-' + node.kind}>
       <div className="project-card-kicker">
-        <span>{kindLabels[node.kind]}</span>
+        <span>{t(kindLabelKeys[node.kind])}</span>
         <span>{node.id}</span>
       </div>
       <h3>{node.label}</h3>
       <p>{node.summary}</p>
-      {node.source ? (
-        <div className="project-card-actions">
-          <button type="button" onClick={() => onSelectSource(node)}>
-            {node.source.symbol ?? node.source.path}
+      <div className="project-card-actions">
+        <button type="button" onClick={() => onInspect(node)}>
+          {t('node.details')}
+        </button>
+        {node.source?.narrativeId ? (
+          <button type="button" onClick={() => onOpenFunction(node)}>
+            {t('node.functionStory')}
           </button>
-          {node.source.narrativeId ? (
-            <button type="button" onClick={() => onOpenFunction(node)}>
-              Function story →
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+        ) : node.source ? (
+          <button type="button" onClick={() => onSelectSource(node)}>
+            {node.source.symbol ?? t('node.source')}
+          </button>
+        ) : null}
+      </div>
     </article>
   );
 }
 
-function edgeLabel(edge: ProjectNarrativeEdge): string {
+function edgeLabel(
+  edge: ProjectNarrativeEdge,
+  t: (key: MessageKey) => string
+): string {
   if (edge.label) {
     return edge.label;
   }
   switch (edge.kind) {
     case 'true':
-      return 'Yes';
+      return t('edge.yes');
     case 'false':
-      return 'No';
+      return t('edge.no');
     case 'calls':
-      return 'Calls';
+      return t('edge.calls');
     case 'error':
-      return 'Failure';
+      return t('edge.failure');
     case 'data':
-      return 'Data';
+      return t('edge.data');
     default:
       return '';
   }
@@ -122,9 +133,12 @@ function edgeLabel(edge: ProjectNarrativeEdge): string {
 
 export const ProjectNarrativeGraph = memo(function ProjectNarrativeGraph({
   flow,
+  selectedNodeId,
+  onInspect,
   onSelectSource,
   onOpenFunction
 }: ProjectNarrativeGraphProps) {
+  const { t } = useI18n();
   const narrow = useNarrowProjectGraph();
   const canvas = useRef<HTMLDivElement>(null);
   const positions = useMemo(
@@ -170,17 +184,19 @@ export const ProjectNarrativeGraph = memo(function ProjectNarrativeGraph({
           background: 'transparent',
           padding: 0
         },
+        className: item.id === selectedNodeId ? 'project-node-selected' : '',
         data: {
           label: (
             <ProjectCard
               node={item}
+              onInspect={onInspect}
               onSelectSource={onSelectSource}
               onOpenFunction={onOpenFunction}
             />
           )
         }
       })),
-    [flow.nodes, onOpenFunction, onSelectSource, positions]
+    [flow.nodes, onInspect, onOpenFunction, onSelectSource, positions, selectedNodeId]
   );
   const edges = useMemo<Edge[]>(
     () =>
@@ -188,7 +204,7 @@ export const ProjectNarrativeGraph = memo(function ProjectNarrativeGraph({
         id: item.id,
         source: item.source,
         target: item.target,
-        label: edgeLabel(item),
+        label: edgeLabel(item, t),
         type: 'smoothstep',
         animated: item.kind === 'calls',
         className: 'project-edge-' + item.kind,
@@ -199,7 +215,7 @@ export const ProjectNarrativeGraph = memo(function ProjectNarrativeGraph({
         },
         style: { strokeWidth: 2 }
       })),
-    [flow.edges]
+    [flow.edges, t]
   );
 
   return (

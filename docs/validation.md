@@ -1,4 +1,4 @@
-# Phase 0–3C 验证记录
+# Phase 0–3D 验证记录
 
 验证日期：2026-08-30
 本地环境：Linux x86_64、Node.js 24.18.0、npm 11.16.0
@@ -138,6 +138,29 @@ Phase 3B 真实浏览器检查：
 - 顶部 diagnostics 从 1,787 条（绝大多数为 info）收敛为 8 条真实 grammar warning。
 - 618 px Codex 侧栏中项目图从入口开始纵向展示，卡片文字可读且不再被全图 `fitView` 过度缩小；Overview → Functions → Overview 往返和两条 flow 的下拉切换均通过。
 
+## Phase 3D：三级叙事、双语界面与 VS Code 内嵌节点
+
+| 验证项 | 证据 | 结果 |
+| --- | --- | --- |
+| 项目节点三级展示 | `ProjectNodeInspector` 的概览/函数流程/实现细节使用同一 snapshot 和真实 source range | 通过 |
+| 层级提取边界 | 嵌套 preorder、detail 汇总和项目入/出边单元测试；单面板最多 300 项 | 通过 |
+| Web 中文/英文 | query、持久选择和浏览器语言解析测试；真实 Hono 页面往返切换 | 通过 |
+| Hono 真实下钻 | `Exactly one handler?` 显示 8 个函数叙事节点和 1 条实现说明，入边 1、出边 2 | 通过 |
+| VS Code 卡片视图 | 0.3.0 独立 profile 真实 Activity Bar 显示 `Narrative Preview` 节点卡与 `Project Outline` | 通过 |
+| VS Code 惰性模型 | 未展开时只读 256 KiB manifest；展开后从 64 MiB bounded snapshot 裁出所选函数 | 通过 |
+| VS Code 中文 | `shishan.language=zh-cn` 后按钮、节点 kind 和数量在真实窗口显示中文；Unicode manifest 单测 | 通过 |
+| Webview 安全 | 无外部资源 CSP；仓库文本用 `textContent`；消息 ID 在 extension host 对 manifest/model 二次映射 | 通过 |
+| VSIX 打包/安装 | `shishan-vscode-0.3.0.vsix` 20 个文件、25.35 KiB；安装成功并冷启动自动激活 | 通过 |
+| 扩展宿主日志 | `workspaceContains:.shishan/project.json` 激活；无 ShiShan extension-host error | 通过 |
+| Authoring Skill | 三级下钻的项目节点必须绑定带函数叙事的精确符号；quick validation | 通过 |
+
+真实 UI 检查：
+
+- Hono `Request lifecycle` 总览的 11 张卡片均显示中文“查看详情”；打开 `Exactly one handler?` 后，概览显示源码和流程关系，函数层列出 Function/Branch/Step/Error/Call 叙事，细节层定位到 L439；
+- 中英文切换后 `Node details` / `Implementation` 与中文对应标签立即替换，节点选择和内容保持不变；
+- 右侧详情 drawer 保留背景流程关系并提供关闭、打开源码和进入完整函数图操作；
+- VS Code 冷启动真实窗口上方显示卡片节点、流程下拉与中文操作，下方继续显示 11 + 6 节点大纲；不打开浏览器也能阅读节点摘要。
+
 ## 真实中型仓库：Hono
 
 测试对象：[Hono `e2740d5`](https://github.com/honojs/hono/tree/e2740d5a1bd0b4254e517e3af8b60789284bc7bd)。测试使用 `/tmp` 中的 shallow clone，没有修改或推送 Hono 上游。
@@ -155,7 +178,7 @@ Phase 3B 真实浏览器检查：
 | 项目整体流程 | request lifecycle 11 节点 + runtime architecture 6 节点；0 project diagnostics | 通过 |
 | static 默认隔离 | 导出约 3.2 MiB；0 source；0 个 `Open in VS Code`；无 API 依赖 | 通过 |
 | 浏览器日志 | live 与 static 的 console warning/error 均为 0 | 通过 |
-| VS Code 安装宿主 | VSIX 安装为 `zhyma.shishan-vscode@0.2.0`；VS Code 1.135.0 日志确认启动激活 | 通过 |
+| VS Code 安装宿主 | VSIX 安装为 `zhyma.shishan-vscode@0.3.0`；VS Code 1.135.0 日志确认启动激活 | 通过 |
 
 试用中发现并修复：
 
@@ -163,30 +186,33 @@ Phase 3B 真实浏览器检查：
 - 函数列表原先只显示顶层 children 数量，现改为真实可见节点总数；
 - 15 节点图原先 `fitView` 过度缩小，现为 20 节点以内设置可读的初始最小缩放；
 - 项目 Overview 原先在 618 px 嵌入窗口把 11 节点 LR 图缩到约 24%，现窄屏改用 TB 并从入口以 90% 缩放阅读；
-- 首次加载 357 条完整路径会占满底部状态区，现压缩为 `initial snapshot · 357 files`，多文件增量也会摘要显示。
+- 首次加载 357 条完整路径会占满底部状态区，现压缩为 `initial snapshot · 357 files`，多文件增量也会摘要显示；
+- 项目节点直接跳到完整函数图会跨越理解层级，现增加同屏三级 drawer；Web 与 VS Code 共用同一 `narrativeId` 绑定，不产生第二份叙事数据；
+- VS Code 只有树形文件感、无法看到 Web 节点，现增加 manifest-first 卡片 Webview，同时保留大纲以兼顾快速键盘导航；
+- 浏览器和扩展若被手动配置为同一个已占用端口会发生冲突；Hono 验收分别使用 4192/4193。后续可增加带 workspace identity 的轻量健康探测，再安全复用外部已启动服务。
 
 完整 Hono 扫描仍有 8 个 `SHISHAN001`。检查对应源码后，它们是当前 `tree-sitter-typescript` 对有效现代语法或复杂类型签名的 grammar error node，例如 `export type *`，不是 Hono 语法错误。该边界保留为显式诊断；没有通过全局忽略来制造“全绿”结果。
 
-VS Code 的安装、Activity Bar manifest、启动激活、TreeView parser、启动参数和 URI 安全逻辑已证明。由于已按用户要求卸载 Orca 桌面控制组件，本轮没有自动点击 VS Code 标题栏命令，也没有自动触发 `vscode://`；这两项仍保留为人工交互复核。
+VS Code 的安装、冷启动激活、真实 Activity Bar 卡片/大纲渲染、TreeView parser、启动参数和 URI 安全逻辑已证明。本轮没有触发标题栏 Web/check/refresh 命令，也没有实际触发 `vscode://` 返回编辑器；这两项仍保留为人工交互复核。
 
 ## 自动化测试结果
 
 本地收尾结果如下；远程最新提交的 `Linux · Node 24` 与 `Incremental invariants` 状态以 [PR #1](https://github.com/zhyma/shishan/pull/1) 和 [CI workflow](https://github.com/zhyma/shishan/actions/workflows/ci.yml) 为准。
 
 ```text
-Test Files  17 passed (17)
-Tests      66 passed (66)
+Test Files  21 passed (21)
+Tests      75 passed (75)
 ```
 
 完整构建：
 
 ```text
 TypeScript protocol/core/cli/vscode build: passed
-Vite production build: 186 modules transformed
-Web main JS gzip: 139.91 kB
+Vite production build: 189 modules transformed
+Web main JS gzip: 144.40 kB
 ELK lazy layout JS gzip: 2.20 kB
 ELK worker asset: 1,595.33 kB
-Web CSS gzip: 6.66 kB
+Web CSS gzip: 7.48 kB
 Production source map: disabled
 ```
 
@@ -208,7 +234,7 @@ Production source map: disabled
 
 ## 尚未由本地环境证明的内容
 
-- VS Code 安装窗口中的 Web/check/refresh 人工点击和 `vscode://` 实际跳转；本地已证明 VSIX 安装、Activity Bar contribution、启动激活、构建、进程参数和 URI 安全逻辑；
+- VS Code 安装窗口中的 Web/check/refresh 标题栏命令和 `vscode://` 实际跳转；本地已证明 VSIX 安装、Activity Bar 卡片/大纲实渲染、启动激活、构建、进程参数和 URI 安全逻辑；
 - 大于 5,000 文件仓库的首次扫描体验；
 - C++ 宏、复杂模板与预处理器语义；
 - TypeScript grammar 对 `export type *` 等有效新语法和复杂类型签名的覆盖；

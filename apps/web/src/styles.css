@@ -120,6 +120,23 @@ a:focus-visible {
   gap: 24px;
 }
 
+.language-switcher select {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f5f7f3;
+  padding: 7px 27px 7px 10px;
+  color: #526058;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 720;
+  outline: none;
+}
+
+.language-switcher select:focus-visible {
+  border-color: #8ca595;
+  box-shadow: 0 0 0 3px rgba(82, 112, 95, 0.12);
+}
+
 .project-stats > div {
   display: grid;
   gap: 2px;
@@ -856,6 +873,255 @@ a:focus-visible {
   color: #6e629a;
 }
 
+.react-flow__node.project-node-selected .project-card {
+  border-color: #668975;
+  box-shadow:
+    0 0 0 3px rgba(82, 112, 95, 0.18),
+    0 15px 34px rgba(38, 61, 47, 0.16);
+}
+
+.project-node-inspector {
+  position: absolute;
+  z-index: 12;
+  top: 96px;
+  right: 16px;
+  bottom: 16px;
+  display: grid;
+  width: min(390px, calc(100% - 32px));
+  min-height: 0;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid #ccd8cf;
+  border-radius: 18px;
+  background: rgba(252, 253, 250, 0.98);
+  box-shadow: 0 22px 60px rgba(30, 53, 39, 0.2);
+  backdrop-filter: blur(16px);
+}
+
+.project-node-inspector > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 18px 13px;
+}
+
+.project-node-inspector > header h2 {
+  margin: 5px 0 0;
+  color: #24382c;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
+  font-weight: 560;
+  line-height: 1.16;
+}
+
+.inspector-close {
+  display: grid;
+  width: 31px;
+  height: 31px;
+  flex: none;
+  place-items: center;
+  border: 1px solid #d6ddd8;
+  border-radius: 10px;
+  background: #f6f8f5;
+  cursor: pointer;
+  color: #5f6c64;
+  font-size: 19px;
+  line-height: 1;
+}
+
+.inspector-levels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  margin: 0 18px 12px;
+  border: 1px solid #d8dfd9;
+  border-radius: 11px;
+  background: #e9ede9;
+  padding: 3px;
+}
+
+.inspector-levels button {
+  min-width: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  padding: 8px 5px;
+  cursor: pointer;
+  color: #6a756e;
+  font-size: 9px;
+  font-weight: 740;
+}
+
+.inspector-levels button.active {
+  background: #fff;
+  color: var(--sage-dark);
+  box-shadow: 0 2px 8px rgba(40, 63, 49, 0.1);
+}
+
+.inspector-content {
+  min-height: 0;
+  overflow-y: auto;
+  border-block: 1px solid #e4e9e5;
+  padding: 16px 18px;
+}
+
+.inspector-summary {
+  margin: 0 0 18px;
+  color: #4f5f56;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.inspector-overview section + section {
+  margin-top: 19px;
+}
+
+.inspector-overview h3 {
+  margin: 0 0 8px;
+  color: #7b8780;
+  font-size: 9px;
+  font-weight: 780;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.inspector-overview code {
+  display: block;
+  overflow: hidden;
+  border: 1px solid #e0e6e1;
+  border-radius: 9px;
+  background: #f4f6f3;
+  padding: 9px 10px;
+  color: #3f5548;
+  font-size: 10px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.project-relations {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.project-relations > div {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 9px;
+}
+
+.project-relations dt {
+  color: #89938d;
+  font-size: 10px;
+  font-weight: 720;
+}
+
+.project-relations dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0;
+  color: #4d5c53;
+  font-size: 10px;
+}
+
+.project-relations dd span {
+  border-radius: 7px;
+  background: #e9efea;
+  padding: 4px 6px;
+}
+
+.inspector-flow-list,
+.inspector-detail-list {
+  display: grid;
+  gap: 7px;
+}
+
+.inspector-count,
+.inspector-empty {
+  margin: 0 0 7px;
+  color: #738078;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.inspector-flow-list > button,
+.inspector-detail-list > button {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  border: 1px solid #dfe6e0;
+  border-radius: 10px;
+  background: #f8faf7;
+  padding: 9px 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.inspector-flow-list > button {
+  margin-left: calc(var(--outline-depth) * 10px);
+}
+
+.inspector-flow-list > button:hover,
+.inspector-detail-list > button:hover {
+  border-color: #b9c9bd;
+  background: #f0f5f0;
+}
+
+.inspector-flow-list button span,
+.inspector-detail-list button span {
+  color: #738b7c;
+  font-size: 8px;
+  font-weight: 780;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.inspector-flow-list button strong,
+.inspector-detail-list button strong {
+  overflow: hidden;
+  color: #30443a;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-flow-list button small,
+.inspector-detail-list button small {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #738078;
+  font-size: 9px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.project-node-inspector > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px;
+}
+
+.project-node-inspector > footer button {
+  border: 1px solid #ccd8cf;
+  border-radius: 9px;
+  background: #f6f8f5;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: #405448;
+  font-size: 9px;
+  font-weight: 720;
+}
+
+.project-node-inspector > footer button:last-child {
+  border-color: #4e705c;
+  background: #395b47;
+  color: #f6faf7;
+}
+
 .narrative-card::before {
   position: absolute;
   inset: 0 auto 0 0;
@@ -1180,6 +1446,14 @@ a:focus-visible {
   .source-panel {
     display: none;
   }
+
+  .project-stats {
+    gap: 10px;
+  }
+
+  .project-stats > div:nth-of-type(-n + 3) {
+    display: none;
+  }
 }
 
 @media (max-width: 760px) {
@@ -1235,7 +1509,7 @@ a:focus-visible {
   }
 
   .project-stats {
-    gap: 0;
+    gap: 6px;
   }
 
   .connection {
@@ -1245,6 +1519,12 @@ a:focus-visible {
 
   .project-stats > div {
     display: none;
+  }
+
+  .language-switcher select {
+    width: 54px;
+    padding: 7px 6px;
+    text-align: center;
   }
 
   .workspace,
@@ -1284,5 +1564,12 @@ a:focus-visible {
 
   .narrative-heading > button {
     display: none;
+  }
+
+  .project-node-inspector {
+    inset: 0;
+    width: 100%;
+    border: 0;
+    border-radius: 0;
   }
 }

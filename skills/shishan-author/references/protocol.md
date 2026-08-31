@@ -76,6 +76,8 @@ Project node kinds are `entry`, `module`, `process`, `decision`, `error`, `outpu
 
 Use lowercase-hyphenated IDs. `entryFlow` and every edge endpoint must exist. Source paths are repository-relative; a source symbol is optional but must be copied from an inspected named function or method. Keep flows small and reader-oriented. Update an existing manifest when architecture, an entry point, a module responsibility, or an explicitly shown cross-function path changes. Do not create a manifest for an unrelated local refactor unless the project asks for one.
 
+A project node bound to a symbol with a `@shishan function` narrative can expose three progressive levels: its project-flow context, the nested function narrative, and attached implementation details. Use an exact narrated symbol when this drilldown is part of the intended experience; a path-only node remains an overview/source target.
+
 ## Python Example
 
 ```python

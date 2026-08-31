@@ -138,6 +138,7 @@ v1.2 表达的是可读叙事关系，不承诺完整编译器级 CFG。`call`�
 - edge 的 source/target 必须存在于同一 flow；每个 flow 的 node/edge ID 唯一；
 - source path 必须是项目内相对路径，不能绝对化、目录穿越或通过符号链接逃逸；
 - source symbol 可选；存在时解析器用当前 `FileAnalysis.symbols` 绑定精确范围和对应函数 narrative ID；
+- 绑定到带 `@shishan function` 的命名符号后，同一个项目节点可以渐进展示项目概览、该函数的嵌套流程节点和附着的 `detail`；这只是复用既有 IR，不新增协议 kind；
 - 文件最大 256 KiB；最多 32 条 flow、每条 100 个 node 和 300 条 edge；
 - 清单缺失时函数级能力照常工作，Web Overview 显示明确空状态。
 

@@ -2,7 +2,7 @@
 
 ShiShan 是一套“代码叙事协议 + 本地解析器 + Web 可视化工具”。AI 在写代码时留下结构化自然语言说明，ShiShan 用真实 AST 校验这些说明绑定到哪个函数、分支、循环或具体语句，再把结果展示成可逐层展开的流程图。
 
-当前分支已经实现 PRD 的 Phase 0–3C 技术基线，支持：
+当前分支已经实现 PRD 的 Phase 0–3D 技术基线，支持：
 
 - Python；
 - C++；
@@ -17,8 +17,10 @@ ShiShan 是一套“代码叙事协议 + 本地解析器 + Web 可视化工具�
 - 80 节点以上动态启用 ELK Worker、600 节点上限和超时回退的大图布局；
 - `.shishan/project.json` 项目级叙事清单：命名整体流程、显式语义边并绑定真实源码符号；
 - 默认展示项目整体流程图，函数/文件视图作为可下钻的第二层；
+- 项目节点内的“概览 → 函数流程 → 实现细节”三级渐进披露，细节项继续绑定真实源码范围；
 - 项目图在宽屏按左右总览，在窄屏按上下阅读并从入口保持可读缩放，同时保留 Overview/Functions 与命名流程切换；
-- 可打包安装的 Linux VS Code 扩展，提供 Activity Bar 项目叙事树、Web 启动、严格检查和源码跳转；
+- Web 界面中英文切换，并记住本地选择；作者写入的叙事正文保持原文，不做不可靠的自动翻译；
+- 可打包安装的 Linux VS Code 扩展，提供 Activity Bar 卡片式节点预览、三级展开、项目大纲、Web 启动、严格检查和源码跳转；
 - 既有代码的人工审核批量注释计划，默认 dry-run；
 - 可独立安装的 ShiShan Authoring Skill。
 
@@ -118,13 +120,13 @@ Skill 会要求代理：
 
 ## VS Code 薄扩展（Linux）
 
-扩展位于 [apps/vscode](apps/vscode)。它贡献独立的 ShiShan Activity Bar，其中的 `Project Narrative` 树直接读取 `.shishan/project.json`，列出命名流程和节点；点击带源码的节点会打开工作区内对应符号。
+扩展位于 [apps/vscode](apps/vscode)。它贡献独立的 ShiShan Activity Bar：上方 `Narrative Preview` 直接显示与 Web 同语义的节点卡片，节点可在侧边栏内切换概览、函数流程和实现细节；下方 `Project Outline` 保留紧凑树形导航。清单节点无需启动浏览器即可查看，只有首次展开函数/细节时才惰性复用本地 CLI snapshot；源码跳转仍限制在当前 workspace。
 
 构建、打包并安装：
 
 ```bash
 npm run package -w shishan-vscode
-code --install-extension apps/vscode/shishan-vscode-0.2.0.vsix --force
+code --install-extension apps/vscode/shishan-vscode-0.3.0.vsix --force
 ```
 
 安装后还可执行：
@@ -133,6 +135,8 @@ code --install-extension apps/vscode/shishan-vscode-0.2.0.vsix --force
 - `ShiShan: Check Narrative Freshness`：运行 `check --strict --base HEAD`；
 - `ShiShan: Refresh Project Narrative`：重新读取项目叙事树；
 - Web 源码面板的 `Open in VS Code`：通过扩展 URI Handler 回到对应文件和位置。
+
+`shishan.language` 可设为 `auto`、`en` 或 `zh-cn`；它同时控制 Activity Bar 运行时文案和从扩展打开的 Web 界面语言。
 
 URI Handler 会拒绝绝对路径、目录穿越和不属于当前 workspace 的文件。扩展不包含独立解析器，只作为 CLI/Web 的薄适配层；在非 ShiShan 源码仓库中使用 Web 命令时，需要把 `shishan.cliPath` 指向已构建的 `apps/cli/dist/main.js`。
 
@@ -153,7 +157,8 @@ flowchart LR
   J["Pinned Git revision"] --> K["AST token + narrative fingerprints"]
   K -->|"SHISHAN501 on changed file"| H
   D --> L["Static site + embedded snapshot"]
-  M["VS Code thin adapter"] --> E
+  M["VS Code cards + outline"] --> E
+  D -->|"manifest-first preview"| M
   F -->|"validated vscode URI"| M
 ```
 
@@ -163,7 +168,7 @@ flowchart LR
 - [packages/core](packages/core)：四语言适配、AST 绑定、Golden IR 和增量项目索引；
 - [apps/cli](apps/cli)：命令行、本地 HTTP/SSE 服务和文件监听；
 - [apps/web](apps/web)：项目/函数浏览、流程图、诊断、`detail` 展开和源码定位；
-- [apps/vscode](apps/vscode)：Linux VS Code 命令、CLI 进程管理和受限源码 URI 跳转；
+- [apps/vscode](apps/vscode)：Linux VS Code 卡片预览/项目大纲、CLI 进程管理和受限源码跳转；
 - [skills/shishan-author](skills/shishan-author)：AI 生产者规则。
 
 详细数据流与安全边界见 [docs/architecture.md](docs/architecture.md)。
@@ -204,7 +209,7 @@ npm run benchmark:incremental -- --files=250
 
 完整仓库仍有 8 个 `SHISHAN001`，来自当前 TypeScript grammar 尚未覆盖的有效新语法或复杂类型签名，例如 `export type *`。这属于已知解析器边界，不应被误报成 Hono 源码错误。新注释的 Hono 核心请求链文件均为 0 个 annotation warning/error，项目清单也为 0 diagnostics。
 
-本机 VS Code 1.135.0 已安装 `zhyma.shishan-vscode@0.2.0`。独立干净配置的 Hono 工作区日志确认它因 `workspaceContains:.shishan/project.json` 自动激活；已验证 VSIX 内容、Activity Bar contribution、项目树 manifest 解析和启动参数。实际点击 Web 命令及 `vscode://` 返回编辑器仍保留为人工交互复核项。
+本机 VS Code 1.135.0 已安装 `zhyma.shishan-vscode@0.3.0`。独立 profile 的 Hono 工作区因 `workspaceContains:.shishan/project.json` 自动激活，并在真实 Activity Bar 中同时渲染卡片式 `Narrative Preview` 与树形 `Project Outline`；中文运行时文案、manifest Unicode、惰性函数模型和源码路径隔离均有自动化覆盖。标题栏 Web/check 操作与 Web `vscode://` 返回编辑器仍保留为人工交互复核项。
 
 ## 测试与构建
 
@@ -215,7 +220,7 @@ npm run typecheck
 python3 /path/to/skill-creator/scripts/quick_validate.py skills/shishan-author
 ```
 
-当前本地结果为 17 个测试文件、66 个测试全部通过；测试覆盖协议、Schema、四语言 Golden IR、项目清单与布局、增量对象复用、Git freshness、CLI 管道输出、静态导出、资源上限、路径隔离、服务补丁和 Web 状态合并。GitHub Actions 当前只在 Linux Node 24 环境运行测试、类型检查、构建和增量不变量；远程状态见 [PR #1](https://github.com/zhyma/shishan/pull/1) 与 [CI workflow](https://github.com/zhyma/shishan/actions/workflows/ci.yml)。
+当前本地结果为 21 个测试文件、75 个测试全部通过；测试覆盖协议、Schema、四语言 Golden IR、项目清单与布局、三级叙事提取、中英文 locale、VS Code Unicode/惰性模型、增量对象复用、Git freshness、CLI 管道输出、静态导出、资源上限、路径隔离、服务补丁和 Web 状态合并。GitHub Actions 当前只在 Linux Node 24 环境运行测试、类型检查、构建和增量不变量；远程状态见 [PR #1](https://github.com/zhyma/shishan/pull/1) 与 [CI workflow](https://github.com/zhyma/shishan/actions/workflows/ci.yml)。
 
 验证记录见 [docs/validation.md](docs/validation.md)。
 
@@ -241,5 +246,5 @@ python3 /path/to/skill-creator/scripts/quick_validate.py skills/shishan-author
 - [产品需求文档](docs/PRD.md)
 - [协议规范](docs/protocol.md)
 - [技术架构](docs/architecture.md)
-- [Phase 0–3C 验证记录](docs/validation.md)
+- [Phase 0–3D 验证记录](docs/validation.md)
 - [MIT License](LICENSE.md)

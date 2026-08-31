@@ -16,6 +16,15 @@ export interface ProjectManifestFlow {
   title: string;
   summary: string;
   nodes: ProjectManifestNode[];
+  edges: ProjectManifestEdge[];
+}
+
+export interface ProjectManifestEdge {
+  id: string;
+  source: string;
+  target: string;
+  kind: string;
+  label?: string;
 }
 
 export interface ProjectManifest {
@@ -42,7 +51,7 @@ function text(value: unknown): string | undefined {
 }
 
 // @shishan function parse-project-manifest
-// @summary Decode enough of the inert project manifest to populate the VS Code tree
+// @summary Decode the bounded inert project manifest for VS Code node cards and outline navigation
 // @input bounded JSON text
 // @output safe display model or a concise error
 export function parseProjectManifest(
@@ -78,7 +87,8 @@ export function parseProjectManifest(
       !text(flow.id) ||
       !text(flow.title) ||
       !text(flow.summary) ||
-      !Array.isArray(flow.nodes)
+      !Array.isArray(flow.nodes) ||
+      !Array.isArray(flow.edges)
     ) {
       return { error: 'project.json contains an invalid flow.' };
     }
@@ -115,11 +125,32 @@ export function parseProjectManifest(
           : {})
       });
     }
+    const edges: ProjectManifestEdge[] = [];
+    for (const candidateEdge of flow.edges) {
+      const edge = record(candidateEdge);
+      if (
+        !edge ||
+        !text(edge.id) ||
+        !text(edge.source) ||
+        !text(edge.target) ||
+        !text(edge.kind)
+      ) {
+        return { error: 'project.json contains an invalid narrative edge.' };
+      }
+      edges.push({
+        id: edge.id as string,
+        source: edge.source as string,
+        target: edge.target as string,
+        kind: edge.kind as string,
+        ...(text(edge.label) ? { label: edge.label as string } : {})
+      });
+    }
     flows.push({
       id: flow.id as string,
       title: flow.title as string,
       summary: flow.summary as string,
-      nodes
+      nodes,
+      edges
     });
   }
   if (flows.length === 0) {

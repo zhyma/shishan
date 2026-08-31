@@ -9,9 +9,18 @@ import type {
   SourceRange
 } from '@shishan/protocol';
 import { NarrativeGraph } from './NarrativeGraph.js';
+import { ProjectNodeInspector } from './ProjectNodeInspector.js';
 import { ProjectNarrativeGraph } from './ProjectNarrativeGraph.js';
 import { SourcePanel } from './SourcePanel.js';
 import { narrativeNodeLabel } from './graph-layout.js';
+import {
+  I18nProvider,
+  resolveUiLocale,
+  translate,
+  type MessageKey,
+  type MessageValues,
+  type UiLocale
+} from './i18n.js';
 import { readStaticData } from './static-data.js';
 import {
   applyProjectPatch,
@@ -38,6 +47,17 @@ function initialView(): WorkspaceView {
   return new URLSearchParams(window.location.search).get('view') === 'functions'
     ? 'functions'
     : 'overview';
+}
+
+function initialLocale(): UiLocale {
+  const params = new URLSearchParams(window.location.search);
+  let stored: string | null = null;
+  try {
+    stored = window.localStorage.getItem('shishan.locale');
+  } catch {
+    // Storage can be disabled for local or embedded exports.
+  }
+  return resolveUiLocale(params.get('lang'), stored, window.navigator.language);
 }
 
 function firstSelection(files: Iterable<FileAnalysis>): Selection | undefined {
@@ -67,7 +87,9 @@ export default function App() {
     STATIC_DATA ? stateFromSnapshot(STATIC_DATA.snapshot) : undefined
   );
   const [view, setView] = useState<WorkspaceView>(initialView);
+  const [locale, setLocale] = useState<UiLocale>(initialLocale);
   const [flowId, setFlowId] = useState('');
+  const [inspectedProjectNodeId, setInspectedProjectNodeId] = useState('');
   const [selection, setSelection] = useState<Selection>();
   const [sourceRange, setSourceRange] = useState<SourceRange>();
   const [connected, setConnected] = useState(Boolean(STATIC_DATA));
@@ -76,6 +98,20 @@ export default function App() {
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const projectRef = useRef<ProjectState | undefined>(project);
   const pendingPatchesRef = useRef<ProjectPatch[]>([]);
+  const t = useCallback(
+    (key: MessageKey, values?: MessageValues) =>
+      translate(locale, key, values),
+    [locale]
+  );
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    try {
+      window.localStorage.setItem('shishan.locale', locale);
+    } catch {
+      // Storage can be disabled for local or embedded exports.
+    }
+  }, [locale]);
 
   useEffect(() => {
     projectRef.current = project;
@@ -221,6 +257,20 @@ export default function App() {
       story.flows[0]
     );
   }, [flowId, project?.projectNarrative]);
+  const inspectedProjectNode = useMemo(
+    () =>
+      activeFlow?.nodes.find((node) => node.id === inspectedProjectNodeId),
+    [activeFlow, inspectedProjectNodeId]
+  );
+  const inspectedNarrative = useMemo(() => {
+    const source = inspectedProjectNode?.source;
+    if (!project || !source?.narrativeId) {
+      return undefined;
+    }
+    return project.files
+      .get(source.path)
+      ?.functions.find((item) => item.id === source.narrativeId);
+  }, [inspectedProjectNode, project]);
 
   useEffect(() => {
     const story = project?.projectNarrative;
@@ -232,6 +282,15 @@ export default function App() {
       setFlowId(story.entryFlow);
     }
   }, [flowId, project?.projectNarrative]);
+
+  useEffect(() => {
+    if (
+      view !== 'overview' ||
+      !activeFlow?.nodes.some((node) => node.id === inspectedProjectNodeId)
+    ) {
+      setInspectedProjectNodeId('');
+    }
+  }, [activeFlow, inspectedProjectNodeId, view]);
 
   useEffect(() => {
     if (!project || view !== 'functions') {
@@ -266,6 +325,9 @@ export default function App() {
       setSourceRange(node.source.range);
     }
   }, []);
+  const inspectProjectNode = useCallback((node: ProjectNarrativeNode): void => {
+    setInspectedProjectNodeId(node.id);
+  }, []);
   const openProjectFunction = useCallback(
     (node: ProjectNarrativeNode): void => {
       const source = node.source;
@@ -278,6 +340,7 @@ export default function App() {
       if (!target) {
         return;
       }
+      setInspectedProjectNodeId('');
       setView('functions');
       selectNarrative(source.path, target);
     },
@@ -314,30 +377,33 @@ export default function App() {
 
   if (!project) {
     return (
-      <main className="loading-screen">
-        <div className="brand-mark">山</div>
-        <h1>ShiShan</h1>
-        <p>{error || 'Reading the local narrative index…'}</p>
-      </main>
+      <I18nProvider locale={locale}>
+        <main className="loading-screen">
+          <div className="brand-mark">山</div>
+          <h1>ShiShan</h1>
+          <p>{error || t('loading.index')}</p>
+        </main>
+      </I18nProvider>
     );
   }
 
   const showSource = view === 'functions' || Boolean(sourceRange);
 
   return (
+    <I18nProvider locale={locale}>
     <div className="app-shell">
       <header className="topbar">
         <div className="brand">
           <span className="brand-mark">山</span>
           <div>
-            <span className="eyebrow">Code narrative</span>
+            <span className="eyebrow">{t('brand.tagline')}</span>
             <strong>{project.rootName}</strong>
           </div>
         </div>
         <div
           className="mobile-view-switcher"
           role="tablist"
-          aria-label="Narrative level"
+          aria-label={t('nav.level')}
         >
           <button
             type="button"
@@ -346,7 +412,7 @@ export default function App() {
             className={view === 'overview' ? 'active' : ''}
             onClick={() => setView('overview')}
           >
-            Overview
+            {t('nav.overview')}
           </button>
           <button
             type="button"
@@ -355,33 +421,44 @@ export default function App() {
             className={view === 'functions' ? 'active' : ''}
             onClick={() => setView('functions')}
           >
-            Functions
+            {t('nav.functions')}
           </button>
         </div>
         <div className="project-stats">
           <div>
-            <span>Project flows</span>
+            <span>{t('stats.flows')}</span>
             <strong>{project.projectNarrative?.flows.length ?? 0}</strong>
           </div>
           <div>
-            <span>Coverage</span>
+            <span>{t('stats.coverage')}</span>
             <strong>{project.coverage.percent}%</strong>
           </div>
           <div>
-            <span>Functions</span>
+            <span>{t('stats.functions')}</span>
             <strong>
               {project.coverage.narratedFunctions}/
               {project.coverage.totalFunctions}
             </strong>
           </div>
           <div>
-            <span>Diagnostics</span>
+            <span>{t('stats.diagnostics')}</span>
             <strong>{diagnostics.length}</strong>
           </div>
           <div>
-            <span>Freshness</span>
-            <strong>{staleDiagnostics.length} stale</strong>
+            <span>{t('stats.freshness')}</span>
+            <strong>{t('status.stale', { count: staleDiagnostics.length })}</strong>
           </div>
+          <label className="language-switcher">
+            <span className="visually-hidden">{t('language.label')}</span>
+            <select
+              aria-label={t('language.label')}
+              value={locale}
+              onChange={(event) => setLocale(event.target.value as UiLocale)}
+            >
+              <option value="zh-CN">{t('language.zh')}</option>
+              <option value="en">{t('language.en')}</option>
+            </select>
+          </label>
           <span
             className={
               STATIC_DATA
@@ -392,7 +469,11 @@ export default function App() {
             }
           >
             <i />
-            {STATIC_DATA ? 'Static' : connected ? 'Live' : 'Reconnecting'}
+            {STATIC_DATA
+              ? t('status.static')
+              : connected
+                ? t('status.live')
+                : t('status.reconnecting')}
           </span>
         </div>
       </header>
@@ -404,15 +485,19 @@ export default function App() {
           (showSource ? ' source-open' : ' source-closed')
         }
       >
-        <nav className="file-sidebar" aria-label="Code narrative navigation">
+        <nav className="file-sidebar" aria-label={t('brand.tagline')}>
           <div className="sidebar-heading">
-            <span className="eyebrow">Explore</span>
+            <span className="eyebrow">{t('sidebar.explore')}</span>
             <strong>
               {view === 'overview'
-                ? 'Overall narrative'
-                : narratedFiles.length + ' narrated files'}
+                ? t('sidebar.overall')
+                : t('sidebar.narratedFiles', { count: narratedFiles.length })}
             </strong>
-            <div className="view-switcher" role="tablist" aria-label="Narrative level">
+            <div
+              className="view-switcher"
+              role="tablist"
+              aria-label={t('nav.level')}
+            >
               <button
                 type="button"
                 role="tab"
@@ -420,7 +505,7 @@ export default function App() {
                 className={view === 'overview' ? 'active' : ''}
                 onClick={() => setView('overview')}
               >
-                Overview
+                {t('nav.overview')}
               </button>
               <button
                 type="button"
@@ -429,16 +514,16 @@ export default function App() {
                 className={view === 'functions' ? 'active' : ''}
                 onClick={() => setView('functions')}
               >
-                Functions
+                {t('nav.functions')}
               </button>
             </div>
             {view === 'functions' ? (
               <label>
-                <span className="visually-hidden">Filter files and functions</span>
+                <span className="visually-hidden">{t('sidebar.filterAria')}</span>
                 <input
                   type="search"
                   value={filter}
-                  placeholder="Filter files or functions"
+                  placeholder={t('sidebar.filterPlaceholder')}
                   onChange={(event) => setFilter(event.target.value)}
                 />
               </label>
@@ -451,13 +536,13 @@ export default function App() {
               aria-expanded={diagnosticsOpen}
               onClick={() => setDiagnosticsOpen((value) => !value)}
             >
-              <span>Diagnostics</span>
+              <span>{t('diagnostics.title')}</span>
               <strong>{diagnostics.length}</strong>
             </button>
             {diagnosticsOpen ? (
               <div className="diagnostic-list">
                 {diagnostics.length === 0 ? (
-                  <p>No diagnostics in the current index.</p>
+                  <p>{t('diagnostics.empty')}</p>
                 ) : (
                   diagnostics.map((entry, index) => (
                     <button
@@ -488,12 +573,12 @@ export default function App() {
               {project.projectNarrative ? (
                 <>
                   <section className="project-intro">
-                    <span className="eyebrow">Project story</span>
+                    <span className="eyebrow">{t('project.story')}</span>
                     <h2>{project.projectNarrative.title}</h2>
                     <p>{project.projectNarrative.summary}</p>
                   </section>
-                  <section className="flow-list" aria-label="Project flows">
-                    <span className="eyebrow">Named flows</span>
+                  <section className="flow-list" aria-label={t('stats.flows')}>
+                    <span className="eyebrow">{t('project.namedFlows')}</span>
                     {project.projectNarrative.flows.map((flow) => (
                       <button
                         type="button"
@@ -501,11 +586,12 @@ export default function App() {
                         className={activeFlow?.id === flow.id ? 'active' : ''}
                         onClick={() => {
                           setFlowId(flow.id);
+                          setInspectedProjectNodeId('');
                           setSourceRange(undefined);
                         }}
                       >
                         <strong>{flow.title}</strong>
-                        <span>{flow.nodes.length} nodes</span>
+                        <span>{t('project.nodes', { count: flow.nodes.length })}</span>
                         <small>{flow.summary}</small>
                       </button>
                     ))}
@@ -513,13 +599,9 @@ export default function App() {
                 </>
               ) : (
                 <section className="project-intro manifest-missing">
-                  <span className="eyebrow">Manifest missing</span>
-                  <h2>No overall story yet</h2>
-                  <p>
-                    Add <code>.shishan/project.json</code> to name the project’s
-                    important flows. The function index remains available in
-                    the Functions tab.
-                  </p>
+                  <span className="eyebrow">{t('project.manifestMissing')}</span>
+                  <h2>{t('project.noStory')}</h2>
+                  <p>{t('project.manifestHelp')}</p>
                 </section>
               )}
             </div>
@@ -553,35 +635,41 @@ export default function App() {
                               diagnostic.code === 'SHISHAN501' &&
                               diagnostic.annotationId === item.localId
                           )
-                            ? 'stale · '
+                            ? t('status.staleOne') + ' · '
                             : ''}
                           {narrativeNodeLabel(item)}
                         </small>
                       </button>
                     ))
                   ) : (
-                    <p className="no-functions">No narrated functions</p>
+                    <p className="no-functions">{t('functions.none')}</p>
                   )}
                 </section>
               ))}
               {files.length === 0 ? (
-                <p className="filter-empty">No files match “{filter}”.</p>
+                <p className="filter-empty">
+                  {t('functions.noMatch', { filter })}
+                </p>
               ) : null}
               {files.length > displayedFiles.length ? (
                 <p className="filter-empty">
-                  Showing the first {displayedFiles.length} files. Use the filter
-                  to narrow {files.length} matches.
+                  {t('functions.showingFirst', {
+                    shown: displayedFiles.length,
+                    total: files.length
+                  })}
                 </p>
               ) : null}
             </div>
           )}
           <footer>
             <span>
-              Last update{' '}
-              {updatePathSummary(
-                project.metrics.lastUpdate.parsedPaths,
-                project.generation
-              )}
+              {t('update.last', {
+                summary: updatePathSummary(
+                  project.metrics.lastUpdate.parsedPaths,
+                  project.generation,
+                  locale
+                )
+              })}
             </span>
             <strong>
               {project.metrics.lastUpdate.durationMs.toFixed(2)} ms
@@ -596,7 +684,7 @@ export default function App() {
                 <div className="narrative-heading project-flow-heading">
                   <div>
                     <span className="eyebrow">
-                      Overall narrative · {activeFlow.id}
+                      {t('flow.overall', { id: activeFlow.id })}
                     </span>
                     <h1>{activeFlow.title}</h1>
                     <p>{activeFlow.summary}</p>
@@ -605,10 +693,11 @@ export default function App() {
                     {projectFlows.length > 1 ? (
                       <select
                         className="mobile-flow-select"
-                        aria-label="Choose project flow"
+                        aria-label={t('project.chooseFlow')}
                         value={activeFlow.id}
                         onChange={(event) => {
                           setFlowId(event.target.value);
+                          setInspectedProjectNodeId('');
                           setSourceRange(undefined);
                         }}
                       >
@@ -619,19 +708,25 @@ export default function App() {
                         ))}
                       </select>
                     ) : null}
-                    <span>{activeFlow.nodes.length} narrative nodes</span>
+                    <span>
+                      {t('flow.narrativeNodes', {
+                        count: activeFlow.nodes.length
+                      })}
+                    </span>
                     {sourceRange ? (
                       <button
                         type="button"
                         onClick={() => setSourceRange(undefined)}
                       >
-                        Hide source
+                        {t('flow.hideSource')}
                       </button>
                     ) : null}
                   </div>
                 </div>
                 <ProjectNarrativeGraph
                   flow={activeFlow}
+                  selectedNodeId={inspectedProjectNodeId}
+                  onInspect={inspectProjectNode}
                   onSelectSource={selectProjectSource}
                   onOpenFunction={openProjectFunction}
                 />
@@ -639,12 +734,8 @@ export default function App() {
             ) : (
               <div className="empty-state">
                 <span>◇</span>
-                <h1>No project narrative yet</h1>
-                <p>
-                  Define the few flows people need to understand in{' '}
-                  <code>.shishan/project.json</code>. ShiShan will validate and
-                  bind its nodes to real source symbols.
-                </p>
+                <h1>{t('flow.noProject')}</h1>
+                <p>{t('flow.noProjectHelp')}</p>
               </div>
             )
           ) : narrative ? (
@@ -660,7 +751,7 @@ export default function App() {
                   type="button"
                   onClick={() => setSourceRange(narrative.source)}
                 >
-                  View function source
+                  {t('flow.viewFunctionSource')}
                 </button>
               </div>
               <NarrativeGraph
@@ -671,13 +762,20 @@ export default function App() {
           ) : (
             <div className="empty-state">
               <span>◇</span>
-              <h1>No narrated functions yet</h1>
-              <p>
-                Add a <code>@shishan function</code> block and the live index
-                will place it here.
-              </p>
+              <h1>{t('flow.noFunctions')}</h1>
+              <p>{t('flow.noFunctionsHelp')}</p>
             </div>
           )}
+          {view === 'overview' && activeFlow && inspectedProjectNode ? (
+            <ProjectNodeInspector
+              flow={activeFlow}
+              node={inspectedProjectNode}
+              narrative={inspectedNarrative}
+              onClose={() => setInspectedProjectNodeId('')}
+              onSelectSource={selectSource}
+              onOpenFunction={openProjectFunction}
+            />
+          ) : null}
         </main>
 
         {showSource ? (
@@ -694,5 +792,6 @@ export default function App() {
         ) : null}
       </div>
     </div>
+    </I18nProvider>
   );
 }

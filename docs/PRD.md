@@ -2,7 +2,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 文档状态 | v0.5，Phase 0–3C 已实现，Hono 项目级叙事与可安装 VS Code 扩展已验收 |
+| 文档状态 | v0.6，Phase 0–3D 已实现，Hono 三级叙事、双语 Web 与 VS Code 内嵌节点已验收 |
 | 日期 | 2026-08-30 |
 | 产品阶段 | Linux 优先的四语言本地 MVP、项目整体叙事与叙事可信度验证 |
 | 第一阶段语言 | Python、C++、TypeScript、JavaScript |
@@ -1068,7 +1068,27 @@ React Flow 核心是 MIT 开源项目，适合自定义叙事节点、循环容�
 
 多 AI 平台 Skill，以及 macOS/Windows 兼容性，按当前产品决策明确延期，不属于 Phase 3C 验收范围。
 
-## 22. Phase 3B–3C 已采用的产品决策
+### Phase 3D：渐进层级、编辑器内嵌节点与双语界面（已实现，Linux）
+
+交付物：
+
+- Web 项目节点详情面板：第一级解释节点自身与前后关系，第二级复用已绑定 `narrativeId` 展示完整嵌套函数流程，第三级汇总该函数及子节点的 `detail` 实现说明；每项继续绑定真实源码范围，并保留进入完整函数图的入口；
+- Web 英文/中文界面切换，支持 `?lang=`、浏览器语言和本地持久选择；只翻译产品 UI，不改写作者提交的 manifest 或注释正文；
+- VS Code 0.3.0 VSIX：新增卡片式 `Narrative Preview` Webview，与 `Project Outline` TreeView 并存；清单节点立即显示，函数与实现层惰性读取 CLI snapshot，不要求用户打开浏览器；
+- VS Code `auto` / `en` / `zh-cn` 设置、英文和简体中文 contribution 文件及运行时文案；
+- Webview 使用无外部资源 CSP、`textContent` 渲染和 extension-host ID 复核；manifest、snapshot 与单节点展示项分别受 256 KiB、64 MiB 和 300 项边界保护；
+- Authoring Skill 明确：期望三级下钻的项目节点必须绑定到已有 `@shishan function` 的精确命名符号。
+
+退出条件：
+
+- Hono 真实浏览器中可以从 11 节点总览打开任一节点，并在同一面板切换概览、函数流程与实现细节；中文/英文切换不丢失选择；
+- VS Code 1.135.0 独立 profile 冷启动后自动激活 0.3.0，并在真实 Activity Bar 同时显示卡片节点和项目大纲；无需外部浏览器即可阅读项目节点；
+- Unicode manifest、locale 解析、层级提取、详情收集、路径隔离、VSIX 内容、全量 typecheck/build/test 与 strict check 通过；
+- 协议保持 `shishan/v1.2` / `shishan/project-v1`，证明此次能力是对既有绑定数据的渐进呈现，而非新的注释语法。
+
+多 AI 平台 Skill，以及 macOS/Windows 兼容性，继续按当前产品决策延期，不属于 Phase 3D 验收范围。
+
+## 22. Phase 3B–3D 已采用的产品决策
 
 本阶段按以下决策实施：
 
@@ -1087,7 +1107,7 @@ Hono `e2740d5` 的项目级中型仓库试用已经完成：357 个受支持源�
 
 仍未完成的里程碑按优先级为：
 
-1. 人工点击 VS Code 的 Web/check/refresh 操作，并验证 Web `vscode://` 实际返回编辑器；安装、Activity Bar contribution、启动激活和路径安全已自动证明；
+1. 人工点击 VS Code 的 Web/check/refresh 标题栏操作，并验证 Web `vscode://` 实际返回编辑器；0.3.0 安装、冷启动激活、真实 Activity Bar 卡片/大纲渲染和路径安全已证明；
 2. 跟踪 `tree-sitter-typescript` 对 `export type *` 等现代语法的支持，为当前 8 个真实 grammar gap 增加最小 fixture，并在上游发布后评估升级；
 3. 用 5–10 个 Codex 编码任务评估 Skill 的同步率、`SHISHAN501` 命中率与噪声；
 4. 选择大于 5,000 文件的仓库，验证首次扫描、长期 watcher/浏览器内存和增量曲线；

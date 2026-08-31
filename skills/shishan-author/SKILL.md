@@ -16,7 +16,7 @@ Read [references/protocol.md](references/protocol.md) before authoring or changi
 3. Update code and narrative together. Preserve accurate user-written prose when behavior has not changed. If an entry point, module responsibility, or named cross-function flow changes, update the affected project nodes and edges too.
 4. Place each block immediately above its AST target and at the same indentation.
 5. Run `shishan check <root> --strict`. Fix binding, syntax, and freshness diagnostics before finishing.
-6. Review the rendered function and project flows when the local viewer is available. Confirm that details attach to the intended node, project source links still bind, and both graph levels remain concise.
+6. Review the rendered function and project flows when the local viewer is available. Confirm that details attach to the intended node, project source links still bind, and the project overview, function flow, and implementation-detail levels remain concise.
 
 ## Choose the Right Granularity
 
@@ -31,6 +31,7 @@ Read [references/protocol.md](references/protocol.md) before authoring or changi
 - Add a `detail` when one or a few concrete statements deserve explanation but should not become flow nodes.
 - Leave ordinary implementation lines unannotated when their meaning is already clear from the surrounding narrative.
 - Keep project flows selective: name the few architecture, request, data, or failure stories a reviewer actually needs. Do not turn every file or dependency into a project node.
+- When a project node should open deeper function-flow and implementation-detail levels, bind it to an exact named symbol that already has a `@shishan function` narrative. A path-only node can still explain architecture and open source, but it cannot promise a function drilldown.
 
 ## Authoring Rules
 
@@ -69,3 +70,4 @@ Read [references/protocol.md](references/protocol.md) before authoring or changi
 - Function inputs, outputs, major decisions, loops, important calls, error paths, and asynchronous waits are understandable from the narrative.
 - Detailed callouts are useful when expanded and do not overwhelm the default flow.
 - Existing project flows pass validation, retain accurate source bindings, and still tell an end-to-end story without becoming a file inventory.
+- Project nodes intended for drilldown resolve to narrated functions, and all three display levels remain useful when reviewed in either supported UI language.
